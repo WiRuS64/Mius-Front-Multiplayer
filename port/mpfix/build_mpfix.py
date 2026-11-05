@@ -1,4 +1,5 @@
-"""Append the .mpfix section (nest_fix.asm + ping.asm) to the ported release 2 and redirect three sites to it.
+"""Append the .mpfix section (nest_fix.asm + ping.asm + keep_handles.asm) to the ported release 2 and redirect four
+sites to it.
 
   python -I build_mpfix.py <ported basic_network.codelib> <output>            (needs ml64.exe: set ML64 to its path)
   python -I build_mpfix.py --blob mpfix.bin <ported> <output>                 (use an already assembled section)
@@ -10,6 +11,7 @@ never written. Section layout (rva 63000h, read/write/execute):
   +200h ping_rx    from mod rva 169e1h: "movzx ecx, byte [rsi+4]; mov [5b908h], r13d" (11 bytes) -> call; 6 nop
   +400h ping_draw  from mod rva 2ce0dh: "call 24820h" (5 bytes) -> call ping_draw (which ends with jmp 24820h)
   +700h data (16 bytes, zero)
+  +780h keep_handles from mod rva 2f092h: "call 2eca4h" (state_load, 5 bytes) -> call keep_handles
 """
 import hashlib
 import os
@@ -22,18 +24,22 @@ HERE = Path(__file__).resolve().parent
 ML64 = Path(os.environ.get("ML64", r"D:\programs\msvc_build\msvc\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\ml64.exe"))
 INPUT_SHA = "6218ff0bb70d0ec5e4627a8031f311f453c79aed8272a879347df4c5ea58a90b"
 SEC_NAME, SEC_RVA = b".mpfix\0\0", 0x63000
-SEC_SIZE = 0x710
+SEC_SIZE = 0x800
+DATA = (0x700, 0x710)
+KEEP = 0x780
 # (site rva, bytes there now, stub offset in the section, length to replace)
 SITES = [
     (0x1d182, bytes.fromhex("49 8d 8f d0 01 00 00"), 0x000),
     (0x169e1, bytes.fromhex("0f b6 4e 04 44 89 2d 1c 4f 04 00"), 0x200),
     (0x2ce0d, bytes.fromhex("e8 0e 7a ff ff"), 0x400),
+    (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x780),
 ]
 # each stub's call/pop that finds the image base (the stubs subtract these fixed offsets)
 PC_CHECKS = [
     (0x000, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63006h
     (0x200, bytes.fromhex("41 53 e8 00 00 00 00 41 5b")),    # push r11; call; pop r11      -> base + 63207h
     (0x400, bytes.fromhex("55 e8 00 00 00 00 5d")),          # push rbp; call; pop rbp      -> base + 63406h
+    (0x780, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63786h
 ]
 
 
@@ -55,17 +61,20 @@ def text_of(obj):
 
 def assemble():
     parts = {}
-    for name in ("nest_fix", "ping"):
+    for name in ("nest_fix", "ping", "keep_handles"):
         obj = HERE / f"{name}.obj"
         subprocess.run([str(ML64), "/nologo", "/c", f"/Fo{obj}", str(HERE / f"{name}.asm")], check=True, cwd=HERE)
         parts[name] = text_of(obj)
-    nest, ping = parts["nest_fix"], parts["ping"]
+    nest, ping, keep = parts["nest_fix"], parts["ping"], parts["keep_handles"]
     if len(nest) > 0x200 or any(ping[:0x200]):
         sys.exit("refused: nest_fix is over 200h bytes or ping.asm has code below 200h")
-    if not 0x700 < len(ping) <= SEC_SIZE or any(ping[0x700:]):
+    if not DATA[0] < len(ping) <= DATA[1] or any(ping[DATA[0]:]):
         sys.exit(f"refused: ping.asm is {len(ping):#x} bytes, the data at 700h must be zero")
+    if not KEEP < len(keep) <= SEC_SIZE or any(keep[:KEEP]):
+        sys.exit("refused: keep_handles.asm must start at 780h and fit the section")
     blob = bytearray(ping.ljust(SEC_SIZE, b"\0"))
     blob[:len(nest)] = nest
+    blob[KEEP:len(keep)] = keep[KEEP:]
     return bytes(blob)
 
 
@@ -77,7 +86,7 @@ def check_blob(blob):
             sys.exit(f"refused: the stub at +{off:#x} does not start with its call/pop")
     if blob[:0x200].rstrip(b"\0")[-8:] != SITES[0][1] + b"\xc3":
         sys.exit("refused: nest_fix does not end with the replaced lea + ret")
-    if any(blob[0x700:]):
+    if any(blob[DATA[0]:DATA[1]]):
         sys.exit("refused: data area not zero")
 
 

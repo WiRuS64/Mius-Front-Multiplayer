@@ -4,7 +4,9 @@
 #   run_versus.ps1 -Tag baseline [-Side germans|soviets] [-Warmup 60] [-Samples 6] [-Every 20] [-KeepRunning]
 param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "run", [ValidateSet("germans", "soviets")][string]$Side = "germans",
       [int]$Warmup = 60, [int]$Samples = 6, [int]$Every = 20, [switch]$KeepRunning, [hashtable]$Extra = @{},
-      [string]$Chaos = "", [string]$ChaosDir = "")   # -Chaos <profile> (lan, good_wifi, bad_wifi, mobile_tether, transatlantic, hell): B joins through the coop-anything chaos box; -ChaosDir <coop-anything>\tools\chaos
+      [string]$Chaos = "", [string]$ChaosDir = "",
+      [string]$Image = "", [string]$HostProfile = "cloud")   # -Image <battle image>: another battle than the saved test battle; -HostProfile: A's profile (its options, e.g. graphics)
+# -Chaos <profile> (lan, good_wifi, bad_wifi, mobile_tether, transatlantic, hell): B joins through the coop-anything chaos box; -ChaosDir <coop-anything>\tools\chaos
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
 $Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
@@ -47,7 +49,7 @@ public class QaWin {
 if (Get-Process starter_x64 -ErrorAction SilentlyContinue) { "A game instance is already running; not touching it. RESULT: SKIP"; Stop-Transcript | Out-Null; exit 2 }
 Get-ChildItem "$Game\out" -Filter "basic_network*.log" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
 Get-ChildItem "$Game\out" -Filter "mp_*.txt" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
-Copy-Item "$Game\_mp_research\test_battle_image.cfgpack" "$Game\data\common\shared\config\tacgame_image.cfgpack" -Force
+Copy-Item $(if ($Image) { $Image } else { "$Game\_mp_research\test_battle_image.cfgpack" }) "$Game\data\common\shared\config\tacgame_image.cfgpack" -Force
 $started = Get-Date
 $dumpBefore = Get-Item "$Game\out\minidump.dmp" -ErrorAction SilentlyContinue
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -95,7 +97,7 @@ function Finish([int]$code) {
 }
 
 # ---- A: host
-$a = Start-Game "root\programs\tacgame.progpack, data\common\shared\config\tacgame_image.cfgpack, users\profiles, cloud, *:*, 0, 1" (@{
+$a = Start-Game "root\programs\tacgame.progpack, data\common\shared\config\tacgame_image.cfgpack, users\profiles, $HostProfile, *:*, 0, 1" (@{
     MP_ROLE = "host"; MP_WINDOW = "0,0,$half,$($screen.Height)" } + $Extra)
 [void]$mine.Add($a)
 $alog = Get-MpLog $a "tacgame"

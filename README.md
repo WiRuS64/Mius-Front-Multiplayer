@@ -1,28 +1,30 @@
-# MiusPlayer-Port 2.2.0
+# MiusPlayer-Port 2.2.1
 
 Two-player multiplayer (versus) for **Graviteam Tactics: Mius-Front**, ported to the current Steam build.
 
 This is [VampyrCat/MiusPlayer](https://github.com/VampyrCat/MiusPlayer) "release 2" (mpmod1, network version 20,
 CC0). The original targets a different compile of build 3598 than the one Steam ships now, so on the current game
 many of its hooks were switched off: the shared Start button, hit sync, the crash guard. Battles never left
-deployment. This port fixes that and one sync bug, and shows the ping to the other player.
+deployment. This port fixes that, one sync bug and one crash between two PCs, and shows the ping to the other
+player.
 
 | | |
 |---|---|
-| Version | **2.2.0** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix + ping display) |
+| Version | **2.2.1** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix + ping display + vehicle render-handle crash fix) |
 | Game | Graviteam Tactics: Mius-Front, Steam app 312980, branch `public`, buildid 15814271 (GRAVITECH3 6.00, assembly 3598, compiled 2024-09-24) |
 | Not for | the Steam `public_beta` branch (untested), other stores (untested) |
-| `basic_network.codelib` SHA-256 | `7be505f94b04c3c3f0ab150ce1fc51b68b02a47d3e8bf5fa73ec6e6c617dd4d2` |
+| `basic_network.codelib` SHA-256 | `e1cd06467b1d8bb5d88685f144a873e682762b788539fe691a4cf2f77048f4ca` |
 | License | CC0 1.0, like the original |
 
 **Русский:** порт мультиплеер-мода MiusPlayer (релиз 2) на текущую Steam-версию игры (ветка `public`, buildid
 15814271). Установка как у оригинала: папку `mpmod1` положить в папку игры и запустить
 `mpmod1\Enable_Multiplayer.bat`. У обоих игроков должен быть один и тот же файл (SHA-256 выше). В 2.2.0 справа от
-верхней строки мультиплеера показывается пинг до другого игрока.
+верхней строки мультиплеера показывается пинг до другого игрока. 2.2.1 исправляет вылет хоста в бою между двумя
+разными ПК (игра падала при движении техники другого игрока, например при конце расстановки): обновиться должны оба.
 
 ## Install
 
-1. Download `MiusPlayer-Port-2.2.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
+1. Download `MiusPlayer-Port-2.2.1.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
    (the one with `starter_x64.exe`; Steam: right-click the game, Manage, Browse local files).
 2. Close the game and run `mpmod1\Enable_Multiplayer.bat`. It checks the game files against
    `mpmod1\game_build_3598.sha256` (in this port: the hashes of Steam buildid 15814271) and copies five files into the
@@ -50,6 +52,17 @@ deployment. This port fixes that and one sync bug, and shows the ping to the oth
    hidden when no answer came for 5 s. Two new 12-byte packets (types 0x20 PING / 0x21 PONG, the sender's
    GetTickCount echoed back). It is measured inside the network pump, so it includes up to one frame on each side:
    two games on one PC show about 30 ms.
+4. **Vehicles keep their own render handles** (2.2.1, `port/mpfix/keep_handles.asm`, same section, the mod's call
+   of its state loader at rva 0x2f092 redirected). Each game loads the other player's unit states into its copies of
+   his units. The author already keeps the process-local parts of a unit around that load (model part handles, a
+   soldier's animation handles, a vehicle's node points). A vehicle also carries its model node handles and instance
+   number at `+0x11a8..+0x11b7`, and those were taken over from the other game. Two games on one PC build their
+   scene the same way and hand out the same numbers, so the tests above never showed it. A host on another PC did
+   (crash report from a real two-PC game, Steam join, skirmish on Mius_a): its copy of the joiner's MG42 got the
+   joiner's handle `0x52800`, which named an empty node group in the host's renderer, and the host crashed at
+   `basic_render+0x12983` (called from `adv_physic+0xd930`, the vehicle model setter) when the game placed the
+   squads at the end of deployment. Now those 16 bytes are saved before the load and put back after it, for
+   vehicles only.
 
 `port/verify_sites.py` checks every signature compare and hook of the mod against a game folder:
 
@@ -87,9 +100,9 @@ All test scripts need `_mp_research` from the original repo in the game copy (it
 
 | Script | What it does | Result |
 |---|---|---|
-| `qa/run_versus.ps1` | saved test battle, host + mp_join | 25 passed, 0 failed; ping shown in both games (30 / 34 ms) |
+| `qa/run_versus.ps1` | saved test battle, host + mp_join | 25 passed, 0 failed; ping shown in both games (30 / 34 ms). With 2.2.1: 25/0; also with `-Image` = the battle of the two-PC crash and `-HostProfile` = the crashed host's options: 25/0 |
 | `qa/run_versus.ps1 -Chaos <profile> -ChaosDir <coop-anything>\tools\chaos` | the same, the joiner's traffic through the coop-anything playbook's chaos box (`tools/chaos`) (delay, jitter, loss, bandwidth) | `transatlantic` (90 ms each way, 0.3 % loss): 26/0, ping shown 204 / 198 ms. With 2.1.0: `bad_wifi` 26/0 (twice), `mobile_tether` 26/0, `transatlantic` 26/0 |
-| `qa/run_operation.ps1` | a NEW operation through the menus (Stepanovka 1941): host and join menus, map shared, the joiner on the German side with fog of war, one order, next turn by both, merge, turn carried out, battle started from the map, both in the battle, units compared, back to the map, turn 2 shared | 40 passed, 0 failed (battle: 426 units, 0 disagreeing, 0 more than 5 m apart, corrections ≤ 0.10 m); with 2.1.0 also 4 turns in a row |
+| `qa/run_operation.ps1` | a NEW operation through the menus (Stepanovka 1941): host and join menus, map shared, the joiner on the German side with fog of war, one order, next turn by both, merge, turn carried out, battle started from the map, both in the battle, units compared, back to the map, turn 2 shared | 40 passed, 0 failed, also with 2.2.1 (battle: 426 units, 0 disagreeing, 0 more than 5 m apart, corrections ≤ 0.10 m); with 2.1.0 also 4 turns in a row |
 | `qa/run_steam_join.ps1` | joining as Steam's "Join Game" does (`+gtmf_join=steam:<id>`), lobby, battle download and battle over the Steam path, using the mod's own Steam stand-in (`MP_STEAM_FAKE`: Steam datagrams over UDP on this PC) | 19 passed, 1 failed: one sample had 13 units whose status (not position) differed. The stand-in's socket keeps Windows' default buffer (the real UDP socket asks for 2 MB) and lost about 30 % of the ~750 KB/s burst traffic on this PC; positions stayed within 5 m |
 | `qa/status_probe.py` | samples unit status in both games N times: stuck (every sample) or lag (now and then) | used on the `bad_wifi` run: the differences were lag, none stuck |
 
@@ -99,9 +112,10 @@ link carries.
 
 ## Not tested
 
-Real Steam play between two Steam accounts on two PCs (only the stand-in above; on this PC the real Steam client
-was seen to be found: "logged on: yes", friends told the game can be joined), real play over the internet (only the
-chaos box), a 2.1.0 game against a 2.2.0 game, the `public_beta` branch. The lobby may show a VPN adapter's address
+Real Steam play between two PCs was tried once with 2.2.0 (joining a friend through Steam's "Join Game", skirmish):
+lobby, battle download and deployment worked, then the host crashed as described in change 4 above. 2.2.1 has not
+yet been played between two PCs. Also not tested: a 2.1.0 or 2.2.0 game against a 2.2.1 game (use the same version),
+the `public_beta` branch. The lobby may show a VPN adapter's address
 (e.g. Cloudflare WARP 198.18.0.1) instead of the LAN address.
 
 ## Rebuilding the patched module yourself
