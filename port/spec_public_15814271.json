@@ -1,0 +1,186 @@
+{
+ "input_sha256": "8108bd1e9af8080ef8b1050512b8311848f5a336acb49a7479388733b4ae5723",
+ "target": "Steam public, buildid 15814271",
+ "edits": [
+  {
+   "file_offset": "0x101fd",
+   "expect": "b0 b3 03 00",
+   "write": "20 b3 03 00",
+   "why": "adv_interf Start..range start (caller check): 0x3b3b0 -> 0x3b320 (mod rva 0x10dfc)"
+  },
+  {
+   "file_offset": "0x10203",
+   "expect": "00 ba 03 00",
+   "write": "60 b9 03 00",
+   "why": "adv_interf range end (caller check): 0x3ba00 -> 0x3b960 (mod rva 0x10e01)"
+  },
+  {
+   "file_offset": "0x117dd",
+   "expect": "b0 b3 03 00",
+   "write": "20 b3 03 00",
+   "why": "adv_interf Start button action: 0x3b3b0 -> 0x3b320 (mod rva 0x123da)"
+  },
+  {
+   "file_offset": "0x117fb",
+   "expect": "f0 b4 03 00",
+   "write": "60 b4 03 00",
+   "why": "adv_interf input action: 0x3b4f0 -> 0x3b460 (mod rva 0x123f8)"
+  },
+  {
+   "file_offset": "0x11805",
+   "expect": "00 17 04 00",
+   "write": "30 16 04 00",
+   "why": "adv_interf box result: 0x41700 -> 0x41630 (mod rva 0x12402)"
+  },
+  {
+   "file_offset": "0x118a7",
+   "expect": "70 74 05 00",
+   "write": "10 73 05 00",
+   "why": "adv_interf 0x57470 (sig check): 0x57470 -> 0x57310 (mod rva 0x124a4)"
+  },
+  {
+   "file_offset": "0x118c0",
+   "expect": "70 74 05 00",
+   "write": "10 73 05 00",
+   "why": "adv_interf 0x57470 (detour): 0x57470 -> 0x57310 (mod rva 0x124bd)"
+  },
+  {
+   "file_offset": "0xf5a9",
+   "expect": "10 68 07 00",
+   "write": "10 65 07 00",
+   "why": "adv_opgame turn worker: 0x76810 -> 0x76510 (mod rva 0x101a6)"
+  },
+  {
+   "file_offset": "0xf5f3",
+   "expect": "10 68 07 00",
+   "write": "10 65 07 00",
+   "why": "adv_opgame turn worker: 0x76810 -> 0x76510 (mod rva 0x101f0)"
+  },
+  {
+   "file_offset": "0x19777",
+   "expect": "10 68 07 00",
+   "write": "10 65 07 00",
+   "why": "adv_opgame turn worker (hook): 0x76810 -> 0x76510 (mod rva 0x1a374)"
+  },
+  {
+   "file_offset": "0x11f1e",
+   "expect": "40 55 03 00",
+   "write": "e0 53 03 00",
+   "why": "adv_opgame 0x35540: 0x35540 -> 0x353e0 (mod rva 0x12b1b)"
+  },
+  {
+   "file_offset": "0x18c3a",
+   "expect": "60 66 0d 00",
+   "write": "80 60 0d 00",
+   "why": "adv_opgame operation save: 0xd6660 -> 0xd6080 (mod rva 0x19837)"
+  },
+  {
+   "file_offset": "0x19727",
+   "expect": "40 6b 03 00",
+   "write": "e0 69 03 00",
+   "why": "adv_opgame next turn: 0x36b40 -> 0x369e0 (mod rva 0x1a324)"
+  },
+  {
+   "file_offset": "0x197c3",
+   "expect": "20 41 04 00",
+   "write": "50 3f 04 00",
+   "why": "adv_opgame recon (sig check): 0x44120 -> 0x43f50 (mod rva 0x1a3c0)"
+  },
+  {
+   "file_offset": "0x197dd",
+   "expect": "20 41 04 00",
+   "write": "50 3f 04 00",
+   "why": "adv_opgame recon (detour): 0x44120 -> 0x43f50 (mod rva 0x1a3da)"
+  },
+  {
+   "file_offset": "0x23a04",
+   "expect": "f0 27 06 00",
+   "write": "f0 24 06 00",
+   "why": "adv_opgame do_mm_skirmish: 0x627f0 -> 0x624f0 (mod rva 0x24601)"
+  },
+  {
+   "file_offset": "0x2783f",
+   "expect": "f0 27 06 00",
+   "write": "f0 24 06 00",
+   "why": "adv_opgame do_mm_skirmish: 0x627f0 -> 0x624f0 (mod rva 0x2843c)"
+  },
+  {
+   "file_offset": "0x29467",
+   "expect": "f0 27 06 00",
+   "write": "f0 24 06 00",
+   "why": "adv_opgame do_mm_skirmish: 0x627f0 -> 0x624f0 (mod rva 0x2a064)"
+  },
+  {
+   "file_offset": "0x290f7",
+   "expect": "50 66 06 00",
+   "write": "50 63 06 00",
+   "why": "adv_opgame 0x66650: 0x66650 -> 0x66350 (mod rva 0x29cf4)"
+  },
+  {
+   "file_offset": "0x2913b",
+   "expect": "98 46 13 00",
+   "write": "98 36 13 00",
+   "why": "adv_opgame dword table {6,10,14,18}: 0x134698 -> 0x133698 (mod rva 0x29d37)"
+  },
+  {
+   "file_offset": "0x2e3c7",
+   "expect": "90 20 08 00",
+   "write": "20 20 08 00",
+   "why": "adv_physic base load (sig check): 0x82090 -> 0x82020 (mod rva 0x2efc4)"
+  },
+  {
+   "file_offset": "0x2e3e5",
+   "expect": "90 20 08 00",
+   "write": "20 20 08 00",
+   "why": "adv_physic base load (detour): 0x82090 -> 0x82020 (mod rva 0x2efe2)"
+  },
+  {
+   "file_offset": "0x33db5",
+   "expect": "20 b5 09 00",
+   "write": "b0 b4 09 00",
+   "why": "adv_physic 0x9b520 (sig check): 0x9b520 -> 0x9b4b0 (mod rva 0x349b2)"
+  },
+  {
+   "file_offset": "0x33dce",
+   "expect": "20 b5 09 00",
+   "write": "b0 b4 09 00",
+   "why": "adv_physic 0x9b520 (detour): 0x9b520 -> 0x9b4b0 (mod rva 0x349cb)"
+  },
+  {
+   "file_offset": "0x3c3be",
+   "expect": "18 7a 0c 00",
+   "write": "d8 79 0c 00",
+   "why": "adv_physic vtable slot -> +0x43230 (hit sync): 0xc7a18 -> 0xc79d8 (mod rva 0x3cfbb)"
+  },
+  {
+   "file_offset": "0x3c3cd",
+   "expect": "a0 67 0c 00",
+   "write": "60 67 0c 00",
+   "why": "adv_physic vtable slot -> +0x66cc0 (hit sync): 0xc67a0 -> 0xc6760 (mod rva 0x3cfca)"
+  },
+  {
+   "file_offset": "0x3c403",
+   "expect": "c0 6c 06 00",
+   "write": "90 6c 06 00",
+   "why": "adv_physic hit function expected in that slot: 0x66cc0 -> 0x66c90 (mod rva 0x3d000)"
+  },
+  {
+   "file_offset": "0x48ba8",
+   "expect": "48 89 5c 24 08 57 48 83 ec 50 49 8b d8 48 8b f9",
+   "write": "48 89 5c 24 08 57 48 83 ec 40 49 8b f8 48 8b d9",
+   "why": "input action signature (prologue recompiled: sub rsp,0x40; regs swapped) (mod rva 0x497a8, adv_interf+0x3b460)"
+  },
+  {
+   "file_offset": "0x481a0",
+   "expect": "48 89 5c 24 08 57 48 83 ec 30 0f 57 c0 49 8b d8",
+   "write": "40 53 48 83 ec 20 0f 57 c0 48 8b d9 41 0f 2f 40",
+   "why": "next turn signature (prologue recompiled) (mod rva 0x48da0, adv_opgame+0x369e0)"
+  },
+  {
+   "file_offset": "0x19757",
+   "expect": "ba 10 00 00 00",
+   "write": "ba 11 00 00 00",
+   "why": "next turn detour length 16 -> 17: new prologue push rbx/sub rsp,20/xorps/mov rbx,rcx/comiss = 17 bytes (mod rva 0x1a357)"
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+game_test/
+old_build/
+out/
+*.obj
+__pycache__/
+dist/
