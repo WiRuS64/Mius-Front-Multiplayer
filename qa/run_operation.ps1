@@ -9,10 +9,12 @@
 #   P1 leaves the battle; P1 back on the map, P2 back in P1's lobby by itself
 #   P1 presses next turn twice (battle results, then the turn): turn 2's map goes to P2, P2 on its map again
 # Click spots are fractions of a 16:9 game window, taken from screenshots of this operation's first turn.
-#   run_operation.ps1 [-Tag op] [-Fight 60] [-KeepRunning]
+#   run_operation.ps1 [-Tag op] [-Fight 60] [-KeepRunning] [-Extra @{ MP_LOG_TRENCH = "1" }] [-Trenches]
+# -Extra: environment variables for both games; -Trenches: count trenches and doubled ones (trench_dups.py)
 param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "operation", [int]$Fight = 60, [switch]$KeepRunning,
       [double[]]$Op = @(0.584, 0.347), [double[]]$StartOp = @(0.5836, 0.6222), [double[]]$Group = @(0.1484, 0.4806),
-      [double[]]$Square = @(0.1670, 0.4531), [double[]]$Zone = @(0.1758, 0.4694), [switch]$StopBeforeOrder, [int]$MaxTurns = 4)
+      [double[]]$Square = @(0.1670, 0.4531), [double[]]$Zone = @(0.1758, 0.4694), [switch]$StopBeforeOrder, [int]$MaxTurns = 4,
+      [hashtable]$Extra = @{}, [switch]$Trenches)
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
 $Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
@@ -62,6 +64,11 @@ function Right-Click($proc, [double]$fx, [double]$fy) {
     [GtAuto]::mouse_event(8, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120
     [GtAuto]::mouse_event(16, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300
 }
+function Trenches([string]$when) {
+    if (-not $Trenches) { return }
+    Write-Host "--- trenches $when"
+    & $Py -I (Join-Path $PSScriptRoot "trench_dups.py") $tools $bt.Id $bt2.Id | ForEach-Object { Write-Host "   $_" }
+}
 function Away { [void][GtAuto]::SetCursorPos(40, 1400) }
 function Finish {
     $d = Get-Item "$Game\out\minidump.dmp" -ErrorAction SilentlyContinue
@@ -78,7 +85,7 @@ function Finish {
 }
 
 # ---- P1: host an operation through the menus, start a new one, close its briefing
-$p1 = Start-Game "" @{}
+$p1 = Start-Game "" $Extra
 $p1log = Get-MpLog $p1 "opgame"
 [void](Wait-Log $p1log 'render pipeline reached' 60); Start-Sleep 6
 [void](Click-Game $p1 0.5 0.129); Start-Sleep -Milliseconds 800
@@ -99,7 +106,7 @@ Press-Key $p1 0x71; Away; Start-Sleep 2      # F2: briefing off
 [void](Save-Shot $p1 "p1_map")
 
 # ---- P2: join, ready; the map comes by itself
-$p2 = Start-Game "" @{}
+$p2 = Start-Game "" $Extra
 $p2log = Get-MpLog $p2 "opgame"
 [void](Wait-Log $p2log 'render pipeline reached' 60); Start-Sleep 6
 [void](Click-Game $p2 0.5 0.129); Start-Sleep -Milliseconds 800
@@ -206,12 +213,15 @@ Check "P2: connected inside the battle" ([bool](Wait-Log $bt2log 'net: connected
 $l1 = Wait-Log $btlog 'this player commands' 5; $l2 = Wait-Log $bt2log 'this player commands' 5
 Check "sides: P1 Soviets, P2 Germans" ($l1 -match 'commands Soviets' -and $l2 -match 'commands Germans') "$(if ($l1) { $l1.Substring(22) }) / $(if ($l2) { $l2.Substring(22) })"
 Start-Sleep 20
+Trenches "deployment"
 Send-Ready $bt; Send-Ready $bt2
 Check "deployment ended in both games" ([bool](Wait-Log $btlog 'phase: initial orders' 40) -and [bool](Wait-Log $bt2log 'phase: initial orders' 40))
 Start-Sleep 4
 Send-Ready $bt; Send-Ready $bt2
 Check "the battle began in both games" ([bool](Wait-Log $btlog 'phase: battle$' 40) -and [bool](Wait-Log $bt2log 'phase: battle$' 40))
+Trenches "battle start"
 Start-Sleep $Fight
+Trenches "after the fight"
 $diff = & $Py "$tools\combat_diff.py" $bt.Id $bt2.Id 4 15 2>&1
 $diff | Where-Object { $_ -match 'sample|disagree|worst|Traceback|Error' }
 $worst = if (($diff | Out-String) -match 'worst sample: (\d+)') { [int]$Matches[1] } else { 999 }

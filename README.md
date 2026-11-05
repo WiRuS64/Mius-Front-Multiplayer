@@ -1,19 +1,19 @@
-# MiusPlayer-Port 2.2.1
+# MiusPlayer-Port 2.2.2
 
 Two-player multiplayer (versus) for **Graviteam Tactics: Mius-Front**, ported to the current Steam build.
 
 This is [VampyrCat/MiusPlayer](https://github.com/VampyrCat/MiusPlayer) "release 2" (mpmod1, network version 20,
 CC0). The original targets a different compile of build 3598 than the one Steam ships now, so on the current game
 many of its hooks were switched off: the shared Start button, hit sync, the crash guard. Battles never left
-deployment. This port fixes that, one sync bug and one crash between two PCs, and shows the ping to the other
-player.
+deployment. This port fixes that, one sync bug, one crash between two PCs and trenches dug twice in operation battles, and
+shows the ping to the other player.
 
 | | |
 |---|---|
-| Version | **2.2.1** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix + ping display + vehicle render-handle crash fix) |
+| Version | **2.2.2** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix + ping display + vehicle render-handle crash fix + no second stamping of the other game's trenches) |
 | Game | Graviteam Tactics: Mius-Front, Steam app 312980, branch `public`, buildid 15814271 (GRAVITECH3 6.00, assembly 3598, compiled 2024-09-24) |
 | Not for | the Steam `public_beta` branch (untested), other stores (untested) |
-| `basic_network.codelib` SHA-256 | `e1cd06467b1d8bb5d88685f144a873e682762b788539fe691a4cf2f77048f4ca` |
+| `basic_network.codelib` SHA-256 | `9c813cda8229ee1423857b084ce334cb393ed65698a864093ce432b24f229657` |
 | License | CC0 1.0, like the original |
 
 **Русский:** порт мультиплеер-мода MiusPlayer (релиз 2) на текущую Steam-версию игры (ветка `public`, buildid
@@ -21,10 +21,12 @@ player.
 `mpmod1\Enable_Multiplayer.bat`. У обоих игроков должен быть один и тот же файл (SHA-256 выше). В 2.2.0 справа от
 верхней строки мультиплеера показывается пинг до другого игрока. 2.2.1 исправляет вылет хоста в бою между двумя
 разными ПК (игра падала при движении техники другого игрока, например при конце расстановки): обновиться должны оба.
+2.2.2: в бою операции окопы, которые игра ставит сама при постройке боя, больше не вдавливаются второй раз по
+списку другой игры (у хоста они уходили всё глубже: ямы с отвесными стенками). Обновиться должны оба.
 
 ## Install
 
-1. Download `MiusPlayer-Port-2.2.1.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
+1. Download `MiusPlayer-Port-2.2.2.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
    (the one with `starter_x64.exe`; Steam: right-click the game, Manage, Browse local files).
 2. Close the game and run `mpmod1\Enable_Multiplayer.bat`. It checks the game files against
    `mpmod1\game_build_3598.sha256` (in this port: the hashes of Steam buildid 15814271) and copies five files into the
@@ -63,6 +65,17 @@ player.
    `basic_render+0x12983` (called from `adv_physic+0xd930`, the vehicle model setter) when the game placed the
    squads at the end of deployment. Now those 16 bytes are saved before the load and put back after it, for
    vehicles only.
+5. **Trenches are not stamped a second time** (2.2.2, one jump in the mod's own code at rva 0x37be0). When a game
+   builds a battle it stamps some trenches into the ground by itself, outside any squad's dig (seen in an
+   operation battle: the operation's field works). Release 2 records those, sends the list to the other game and
+   that game stamps every entry it has not stamped from such a list before. But it has stamped the same trenches
+   itself, from the same battle description, and its own stamps are not in that check (the entries also carry
+   a variant number, so a list sent again counts as new). In a real two-PC operation battle (Stepanovka 1941,
+   2.2.1) the host stamped the joiner's 19 such trenches on top of its own twice, once when the joiner
+   reconnected and again at the end of deployment; the host's player saw deep pits and trenches with straight
+   walls. The original source says the same about digs made while the battle is built: "sent again it would be
+   dug twice there". Now the received list is dropped without stamping; each game keeps the trenches it stamped
+   itself. Digs of squads (the owner's dig carried out in the other game) are unchanged.
 
 `port/verify_sites.py` checks every signature compare and hook of the mod against a game folder:
 
@@ -102,6 +115,7 @@ All test scripts need `_mp_research` from the original repo in the game copy (it
 |---|---|---|
 | `qa/run_versus.ps1` | saved test battle, host + mp_join | 25 passed, 0 failed; ping shown in both games (30 / 34 ms). With 2.2.1: 25/0; also with `-Image` = the battle of the two-PC crash and `-HostProfile` = the crashed host's options: 25/0 |
 | `qa/run_versus.ps1 -Chaos <profile> -ChaosDir <coop-anything>\tools\chaos` | the same, the joiner's traffic through the coop-anything playbook's chaos box (`tools/chaos`) (delay, jitter, loss, bandwidth) | `transatlantic` (90 ms each way, 0.3 % loss): 26/0, ping shown 204 / 198 ms. With 2.1.0: `bad_wifi` 26/0 (twice), `mobile_tether` 26/0, `transatlantic` 26/0 |
+| `qa/run_operation.ps1 -Trenches -Extra @{ MP_LOG_TRENCH = "1" }` | the same with every dig and stamp logged and the trenches of both games counted (`qa/trench_dups.py`) | 2.2.2: 40 passed, 0 failed. This battle (first turn) has no trenches stamped outside a dig, so it shows that 2.2.2 breaks nothing, not that the pits are gone |
 | `qa/run_operation.ps1` | a NEW operation through the menus (Stepanovka 1941): host and join menus, map shared, the joiner on the German side with fog of war, one order, next turn by both, merge, turn carried out, battle started from the map, both in the battle, units compared, back to the map, turn 2 shared | 40 passed, 0 failed, also with 2.2.1 (battle: 426 units, 0 disagreeing, 0 more than 5 m apart, corrections ≤ 0.10 m); with 2.1.0 also 4 turns in a row |
 | `qa/run_steam_join.ps1` | joining as Steam's "Join Game" does (`+gtmf_join=steam:<id>`), lobby, battle download and battle over the Steam path, using the mod's own Steam stand-in (`MP_STEAM_FAKE`: Steam datagrams over UDP on this PC) | 19 passed, 1 failed: one sample had 13 units whose status (not position) differed. The stand-in's socket keeps Windows' default buffer (the real UDP socket asks for 2 MB) and lost about 30 % of the ~750 KB/s burst traffic on this PC; positions stayed within 5 m |
 | `qa/status_probe.py` | samples unit status in both games N times: stuck (every sample) or lag (now and then) | used on the `bad_wifi` run: the differences were lag, none stuck |
@@ -111,6 +125,10 @@ the mod sends 100–400 KB/s during a battle (skirmish ~105 KB/s, the operation 
 link carries.
 
 ## Not tested
+
+2.2.2 (trench fix): run_versus 25/0 and run_operation 40/0 on one PC. The pits themselves were not reproduced
+on one PC: the bots fire no artillery and the test battles stamp no trenches outside a dig. The fix comes from the
+logs of the real two-PC game and has to be checked there (both players on 2.2.2, an operation battle).
 
 Real Steam play between two PCs was tried once with 2.2.0 (joining a friend through Steam's "Join Game", skirmish):
 lobby, battle download and deployment worked, then the host crashed as described in change 4 above. 2.2.1 has not

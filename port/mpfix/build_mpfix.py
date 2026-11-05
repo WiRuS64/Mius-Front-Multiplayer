@@ -34,6 +34,15 @@ SITES = [
     (0x2ce0d, bytes.fromhex("e8 0e 7a ff ff"), 0x400),
     (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x780),
 ]
+# plain byte changes in the mod's own code: (rva, bytes there now, new bytes)
+BYTE_PATCHES = [
+    # trench: the other game's list of trenches "stamped outside any dig" (the ones the game stamps by itself
+    # when it builds the battle, e.g. an operation's field works) is no longer stamped here a second time.
+    # Both games build the battle from the same description and stamp those themselves; stamping the other
+    # game's copies on top dug the same trench again, deeper each time (je -> jmp to the end of the loop,
+    # where the received list is emptied).
+    (0x37be0, bytes.fromhex("0f 84 2e 01 00 00"), bytes.fromhex("e9 2f 01 00 00 90")),
+]
 # each stub's call/pop that finds the image base (the stubs subtract these fixed offsets)
 PC_CHECKS = [
     (0x000, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63006h
@@ -141,6 +150,17 @@ def main():
         rel = SEC_RVA + off - (rva + 5)
         data[site:site + len(want)] = b"\xe8" + struct.pack("<i", rel) + b"\x90" * (len(want) - 5)
         print(f"site {rva:#x} ({len(want)} bytes) -> call .mpfix+{off:#x}")
+    for rva, want, new in BYTE_PATCHES:
+        site = None
+        for i in range(nsec):
+            s = table + 40 * i
+            vsize, va, rsize, rptr = struct.unpack_from("<IIII", data, s + 8)
+            if va <= rva < va + vsize:
+                site = rptr + rva - va
+        if len(new) != len(want) or bytes(data[site:site + len(want)]) != want:
+            sys.exit(f"refused: patch {rva:#x} holds {data[site:site + len(want)].hex(' ')}")
+        data[site:site + len(want)] = new
+        print(f"patch {rva:#x}: {want.hex(' ')} -> {new.hex(' ')}")
     dst.write_bytes(data)
     print(f"section {len(blob):#x} bytes at rva {SEC_RVA:#x}")
     print(f"output {dst} SHA-256 {hashlib.sha256(data).hexdigest()}")
