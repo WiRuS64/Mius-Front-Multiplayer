@@ -1,27 +1,28 @@
-# MiusPlayer-Port 2.1.0
+# MiusPlayer-Port 2.2.0
 
 Two-player multiplayer (versus) for **Graviteam Tactics: Mius-Front**, ported to the current Steam build.
 
 This is [VampyrCat/MiusPlayer](https://github.com/VampyrCat/MiusPlayer) "release 2" (mpmod1, network version 20,
 CC0). The original targets a different compile of build 3598 than the one Steam ships now, so on the current game
 many of its hooks were switched off: the shared Start button, hit sync, the crash guard. Battles never left
-deployment. This port fixes that and one sync bug.
+deployment. This port fixes that and one sync bug, and shows the ping to the other player.
 
 | | |
 |---|---|
-| Version | **2.1.0** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix) |
+| Version | **2.2.0** (= MiusPlayer release 2 + port to Steam `public` + static-emplacement fix + ping display) |
 | Game | Graviteam Tactics: Mius-Front, Steam app 312980, branch `public`, buildid 15814271 (GRAVITECH3 6.00, assembly 3598, compiled 2024-09-24) |
 | Not for | the Steam `public_beta` branch (untested), other stores (untested) |
-| `basic_network.codelib` SHA-256 | `cd9ae1b8ab09bee363fb3ba26af25373b0ce2c53009f2620824e23b42c493b7c` |
+| `basic_network.codelib` SHA-256 | `7be505f94b04c3c3f0ab150ce1fc51b68b02a47d3e8bf5fa73ec6e6c617dd4d2` |
 | License | CC0 1.0, like the original |
 
 **Русский:** порт мультиплеер-мода MiusPlayer (релиз 2) на текущую Steam-версию игры (ветка `public`, buildid
 15814271). Установка как у оригинала: папку `mpmod1` положить в папку игры и запустить
-`mpmod1\Enable_Multiplayer.bat`. У обоих игроков должен быть один и тот же файл (SHA-256 выше).
+`mpmod1\Enable_Multiplayer.bat`. У обоих игроков должен быть один и тот же файл (SHA-256 выше). В 2.2.0 справа от
+верхней строки мультиплеера показывается пинг до другого игрока.
 
 ## Install
 
-1. Download `MiusPlayer-Port-2.1.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
+1. Download `MiusPlayer-Port-2.2.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game folder
    (the one with `starter_x64.exe`; Steam: right-click the game, Manage, Browse local files).
 2. Close the game and run `mpmod1\Enable_Multiplayer.bat`. It checks the game files against
    `mpmod1\game_build_3598.sha256` (in this port: the hashes of Steam buildid 15814271) and copies five files into the
@@ -44,6 +45,11 @@ deployment. This port fixes that and one sync bug.
    the old place, 845 m away, and were pulled back on every update. Now, when a followed vehicle's model is more
    than 5 m from its position, the mod calls the engine's own render-model setter (adv_physic+0xd930) with the
    vehicle's transform.
+3. **Ping** (2.2.0, `port/mpfix/ping.asm`, same section). Right of the top status banner ("MULTIPLAYER · … ·
+   connected") a box shows `ping N ms`: the round trip to the other player's game, smoothed, refreshed every second,
+   hidden when no answer came for 5 s. Two new 12-byte packets (types 0x20 PING / 0x21 PONG, the sender's
+   GetTickCount echoed back). It is measured inside the network pump, so it includes up to one frame on each side:
+   two games on one PC show about 30 ms.
 
 `port/verify_sites.py` checks every signature compare and hook of the mod against a game folder:
 
@@ -76,18 +82,34 @@ Mutation check: the same test with the port but without the emplacement fix fail
 Fog check: `qa/fog_check.py` replaces the original `view_check.py`, which read unit `+0x6f0` as an "own unit" flag.
 That field is the unit's place in its force and is 0 for every unit in a skirmish battle.
 
+All test scripts need `_mp_research` from the original repo in the game copy (its `tools` folder) and Python 3
+(`MP_PYTHON` to pick one). Results with 2.2.0 unless noted, Steam `public` 15814271, two games on one PC:
+
+| Script | What it does | Result |
+|---|---|---|
+| `qa/run_versus.ps1` | saved test battle, host + mp_join | 25 passed, 0 failed; ping shown in both games (30 / 34 ms) |
+| `qa/run_versus.ps1 -Chaos <profile> -ChaosDir <coop-anything>\tools\chaos` | the same, the joiner's traffic through the coop-anything playbook's chaos box (`tools/chaos`) (delay, jitter, loss, bandwidth) | `transatlantic` (90 ms each way, 0.3 % loss): 26/0, ping shown 204 / 198 ms. With 2.1.0: `bad_wifi` 26/0 (twice), `mobile_tether` 26/0, `transatlantic` 26/0 |
+| `qa/run_operation.ps1` | a NEW operation through the menus (Stepanovka 1941): host and join menus, map shared, the joiner on the German side with fog of war, one order, next turn by both, merge, turn carried out, battle started from the map, both in the battle, units compared, back to the map, turn 2 shared | 40 passed, 0 failed (battle: 426 units, 0 disagreeing, 0 more than 5 m apart, corrections ≤ 0.10 m); with 2.1.0 also 4 turns in a row |
+| `qa/run_steam_join.ps1` | joining as Steam's "Join Game" does (`+gtmf_join=steam:<id>`), lobby, battle download and battle over the Steam path, using the mod's own Steam stand-in (`MP_STEAM_FAKE`: Steam datagrams over UDP on this PC) | 19 passed, 1 failed: one sample had 13 units whose status (not position) differed. The stand-in's socket keeps Windows' default buffer (the real UDP socket asks for 2 MB) and lost about 30 % of the ~750 KB/s burst traffic on this PC; positions stayed within 5 m |
+| `qa/status_probe.py` | samples unit status in both games N times: stuck (every sample) or lag (now and then) | used on the `bad_wifi` run: the differences were lag, none stuck |
+
+The `hell` chaos profile (512 kbit/s, 5 % loss) kept units in agreement but the battle ran at ×0.55–0.72 speed:
+the mod sends 100–400 KB/s during a battle (skirmish ~105 KB/s, the operation battle ~400 KB/s), more than such a
+link carries.
+
 ## Not tested
 
-Operations (operation map, turns), the host/join menus, joining through Steam friends, real play over the internet,
-the `public_beta` branch. The lobby may show a VPN adapter's address (e.g. Cloudflare WARP 198.18.0.1) instead of
-the LAN address.
+Real Steam play between two Steam accounts on two PCs (only the stand-in above; on this PC the real Steam client
+was seen to be found: "logged on: yes", friends told the game can be joined), real play over the internet (only the
+chaos box), a 2.1.0 game against a 2.2.0 game, the `public_beta` branch. The lobby may show a VPN adapter's address
+(e.g. Cloudflare WARP 198.18.0.1) instead of the LAN address.
 
 ## Rebuilding the patched module yourself
 
 ```
-python -I port/build_spec.py                    # needs a game copy in ./game_test (see the script header)
+python -I port/build_spec.py <release 2 basic_network.codelib> <game dir>   # writes port/spec_public_15814271.json
 python -I port/apply_patch.py port/spec_public_15814271.json <release 2 basic_network.codelib> out/ported.codelib
-python -I port/mpfix/build_mpfix.py --blob port/mpfix/nest_fix.bin out/ported.codelib out/basic_network.codelib
+python -I port/mpfix/build_mpfix.py --blob port/mpfix/mpfix.bin out/ported.codelib out/basic_network.codelib
 python -I port/verify_sites.py out/basic_network.codelib <game dir>/bin/rel/x64
 ```
 

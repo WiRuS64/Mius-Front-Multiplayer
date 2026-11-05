@@ -1,11 +1,15 @@
-"""Append the .mpfix section (nest_fix.asm) to the ported release 2 and redirect one instruction to it.
+"""Append the .mpfix section (nest_fix.asm + ping.asm) to the ported release 2 and redirect three sites to it.
 
-  python -I build_mpfix.py <ported basic_network.codelib> <output>        (needs ml64.exe, see ML64 below)
-  python -I build_mpfix.py --blob nest_fix.bin <ported> <output>          (use an already assembled blob)
+  python -I build_mpfix.py <ported basic_network.codelib> <output>            (needs ml64.exe: set ML64 to its path)
+  python -I build_mpfix.py --blob mpfix.bin <ported> <output>                 (use an already assembled section)
 
 The input must be the output of apply_patch.py with spec_public_15814271.json (SHA-256 checked). The input file is
-never written. At mod rva 0x1d182 the 7-byte "lea rcx, [r15+1d0h]" becomes "call .mpfix; nop; nop"; the stub ends
-with that same lea.
+never written. Section layout (rva 63000h, read/write/execute):
+
+  +000h nest_fix   from mod rva 1d182h: "lea rcx, [r15+1d0h]" (7 bytes) -> call; nop; nop
+  +200h ping_rx    from mod rva 169e1h: "movzx ecx, byte [rsi+4]; mov [5b908h], r13d" (11 bytes) -> call; 6 nop
+  +400h ping_draw  from mod rva 2ce0dh: "call 24820h" (5 bytes) -> call ping_draw (which ends with jmp 24820h)
+  +700h data (16 bytes, zero)
 """
 import hashlib
 import os
@@ -15,28 +19,66 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ML64 = Path(os.environ.get("ML64", "ml64.exe"))  # full path of MSVC's ml64.exe, or have it on PATH
+ML64 = Path(os.environ.get("ML64", r"D:\programs\msvc_build\msvc\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\ml64.exe"))
 INPUT_SHA = "6218ff0bb70d0ec5e4627a8031f311f453c79aed8272a879347df4c5ea58a90b"
-SITE_RVA, SITE_BYTES = 0x1d182, bytes.fromhex("49 8d 8f d0 01 00 00")   # lea rcx, [r15+1d0h]
 SEC_NAME, SEC_RVA = b".mpfix\0\0", 0x63000
+SEC_SIZE = 0x710
+# (site rva, bytes there now, stub offset in the section, length to replace)
+SITES = [
+    (0x1d182, bytes.fromhex("49 8d 8f d0 01 00 00"), 0x000),
+    (0x169e1, bytes.fromhex("0f b6 4e 04 44 89 2d 1c 4f 04 00"), 0x200),
+    (0x2ce0d, bytes.fromhex("e8 0e 7a ff ff"), 0x400),
+]
+# each stub's call/pop that finds the image base (the stubs subtract these fixed offsets)
+PC_CHECKS = [
+    (0x000, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63006h
+    (0x200, bytes.fromhex("41 53 e8 00 00 00 00 41 5b")),    # push r11; call; pop r11      -> base + 63207h
+    (0x400, bytes.fromhex("55 e8 00 00 00 00 5d")),          # push rbp; call; pop rbp      -> base + 63406h
+]
 
 
-def assemble():
-    obj = HERE / "nest_fix.obj"
-    subprocess.run([str(ML64), "/nologo", "/c", f"/Fo{obj}", str(HERE / "nest_fix.asm")], check=True, cwd=HERE)
+def text_of(obj):
     d = obj.read_bytes()
     nsec = struct.unpack_from("<H", d, 2)[0]
     opt = struct.unpack_from("<H", d, 16)[0]
     for i in range(nsec):
         s = 20 + opt + 40 * i
         name = d[s:s + 8].rstrip(b"\0")
-        size, raw, rel, nrel = struct.unpack_from("<I", d, s + 16)[0], struct.unpack_from("<I", d, s + 20)[0], \
-            struct.unpack_from("<I", d, s + 24)[0], struct.unpack_from("<H", d, s + 32)[0]
-        if name == b".text" or name.startswith(b".text"):
+        size, raw = struct.unpack_from("<II", d, s + 16)
+        nrel = struct.unpack_from("<H", d, s + 32)[0]
+        if name.startswith(b".text"):
             if nrel:
-                sys.exit(f"refused: the stub has {nrel} relocations")
-            return d[raw:raw + size]
-    sys.exit("no .text in the object")
+                sys.exit(f"refused: {obj.name} has {nrel} relocations")
+            return d[raw:raw + size] if raw else bytes(size)
+    sys.exit(f"no .text in {obj.name}")
+
+
+def assemble():
+    parts = {}
+    for name in ("nest_fix", "ping"):
+        obj = HERE / f"{name}.obj"
+        subprocess.run([str(ML64), "/nologo", "/c", f"/Fo{obj}", str(HERE / f"{name}.asm")], check=True, cwd=HERE)
+        parts[name] = text_of(obj)
+    nest, ping = parts["nest_fix"], parts["ping"]
+    if len(nest) > 0x200 or any(ping[:0x200]):
+        sys.exit("refused: nest_fix is over 200h bytes or ping.asm has code below 200h")
+    if not 0x700 < len(ping) <= SEC_SIZE or any(ping[0x700:]):
+        sys.exit(f"refused: ping.asm is {len(ping):#x} bytes, the data at 700h must be zero")
+    blob = bytearray(ping.ljust(SEC_SIZE, b"\0"))
+    blob[:len(nest)] = nest
+    return bytes(blob)
+
+
+def check_blob(blob):
+    if len(blob) != SEC_SIZE:
+        sys.exit(f"refused: section blob is {len(blob):#x} bytes, expected {SEC_SIZE:#x}")
+    for off, want in PC_CHECKS:
+        if blob[off:off + len(want)] != want:
+            sys.exit(f"refused: the stub at +{off:#x} does not start with its call/pop")
+    if blob[:0x200].rstrip(b"\0")[-8:] != SITES[0][1] + b"\xc3":
+        sys.exit("refused: nest_fix does not end with the replaced lea + ret")
+    if any(blob[0x700:]):
+        sys.exit("refused: data area not zero")
 
 
 def main():
@@ -53,10 +95,8 @@ def main():
         sys.exit(f"refused: {src.name} is not the ported release 2 ({INPUT_SHA[:16]}...)")
     if blob is None:
         blob = assemble()
-        (HERE / "nest_fix.bin").write_bytes(blob)
-    # the stub finds the image base from "push rbx; call getpc; getpc: pop rbx" = 53 E8 00000000 5B
-    if blob[:7] != bytes.fromhex("53 e8 00 00 00 00 5b") or blob[-8:] != SITE_BYTES + b"\xc3":
-        sys.exit("refused: the stub does not start with push/call/pop or end with the replaced lea + ret")
+        (HERE / "mpfix.bin").write_bytes(blob)
+    check_blob(blob)
 
     pe = struct.unpack_from("<I", data, 0x3C)[0]
     nsec = struct.unpack_from("<H", data, pe + 6)[0]
@@ -74,25 +114,26 @@ def main():
     assert raw_ptr % file_align == 0
     raw_size = (len(blob) + file_align - 1) // file_align * file_align
     hdr = SEC_NAME + struct.pack("<IIIIIIHHI", len(blob), SEC_RVA, raw_size, raw_ptr, 0, 0, 0, 0,
-                                 0x60000020)   # code, execute, read
+                                 0xE0000020)   # code, execute, read, write (the ping state lives at +700h)
     data[new_hdr:new_hdr + 40] = hdr
     struct.pack_into("<H", data, pe + 6, nsec + 1)
     struct.pack_into("<I", data, opt + 56, SEC_RVA + (len(blob) + sec_align - 1) // sec_align * sec_align)
-    data += blob.ljust(raw_size, b"\xcc")
+    data += blob.ljust(raw_size, b"\0")
 
-    # redirect the site
-    site = None
-    for i in range(nsec):
-        s = table + 40 * i
-        vsize, va, rsize, rptr = struct.unpack_from("<IIII", data, s + 8)
-        if va <= SITE_RVA < va + vsize:
-            site = rptr + SITE_RVA - va
-    if bytes(data[site:site + 7]) != SITE_BYTES:
-        sys.exit(f"refused: site holds {data[site:site + 7].hex(' ')}")
-    rel = SEC_RVA - (SITE_RVA + 5)
-    data[site:site + 7] = b"\xe8" + struct.pack("<i", rel) + b"\x90\x90"
+    for rva, want, off in SITES:
+        site = None
+        for i in range(nsec):
+            s = table + 40 * i
+            vsize, va, rsize, rptr = struct.unpack_from("<IIII", data, s + 8)
+            if va <= rva < va + vsize:
+                site = rptr + rva - va
+        if bytes(data[site:site + len(want)]) != want:
+            sys.exit(f"refused: site {rva:#x} holds {data[site:site + len(want)].hex(' ')}")
+        rel = SEC_RVA + off - (rva + 5)
+        data[site:site + len(want)] = b"\xe8" + struct.pack("<i", rel) + b"\x90" * (len(want) - 5)
+        print(f"site {rva:#x} ({len(want)} bytes) -> call .mpfix+{off:#x}")
     dst.write_bytes(data)
-    print(f"stub {len(blob)} bytes at rva {SEC_RVA:#x}; site {SITE_RVA:#x} redirected")
+    print(f"section {len(blob):#x} bytes at rva {SEC_RVA:#x}")
     print(f"output {dst} SHA-256 {hashlib.sha256(data).hexdigest()}")
 
 

@@ -3,10 +3,11 @@
 # the mod's MP_TEST command file. Checks phases, the shared Start button, unit agreement, fog of war, crashes.
 #   run_versus.ps1 -Tag baseline [-Side germans|soviets] [-Warmup 60] [-Samples 6] [-Every 20] [-KeepRunning]
 param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "run", [ValidateSet("germans", "soviets")][string]$Side = "germans",
-      [int]$Warmup = 60, [int]$Samples = 6, [int]$Every = 20, [switch]$KeepRunning, [hashtable]$Extra = @{})
+      [int]$Warmup = 60, [int]$Samples = 6, [int]$Every = 20, [switch]$KeepRunning, [hashtable]$Extra = @{},
+      [string]$Chaos = "", [string]$ChaosDir = "")   # -Chaos <profile> (lan, good_wifi, bad_wifi, mobile_tether, transatlantic, hell): B joins through the coop-anything chaos box; -ChaosDir <coop-anything>\tools\chaos
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
-$Py = "D:\programs\Python312\python.exe"
+$Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
 . "$Game\_mp_research\tools\auto.ps1"
 $script:Game = $Game
 $tools = "$Game\_mp_research\tools"
@@ -66,6 +67,13 @@ function Crash-Check([string]$when) {
 }
 function Finish([int]$code) {
     foreach ($p in $mine) { $p.Refresh(); "pid $($p.Id): $(if ($p.HasExited) { "exited, code $($p.ExitCode)" } else { 'running' })" }
+    if ($chaosInfo -and (Test-Path $chaosInfo)) {
+        "--- chaos box"
+        & $Py -I "$chaosDir\chaos.py" call --rpc-port $ci.rpc stats 2>&1 | Out-String | Set-Content "$runDir\chaos_stats.json"
+        Get-Content "$runDir\chaos_stats.json" | Select-Object -First 40
+        if (-not $KeepRunning) { & $Py -I "$chaosDir\chaos.py" call --rpc-port $ci.rpc shutdown 2>&1 | Out-Null }
+        else { "chaos box left running: rpc port $($ci.rpc)" }
+    }
     if (-not $KeepRunning) { foreach ($p in @($mine)[($mine.Count - 1)..0]) { Stop-Game $p } }
     $dump = Get-Item "$Game\out\minidump.dmp" -ErrorAction SilentlyContinue
     if ($dump -and (-not $dumpBefore -or $dump.LastWriteTime -gt $started)) {
@@ -97,10 +105,24 @@ if (-not $ok) { [void](Crash-Check "A start"); Finish 1 }
 $line = Wait-Log $alog 'this player commands' 10
 Check "A: its player commands the Soviets" ($line -match 'commands Soviets') $(if ($line) { $line.Substring(22) })
 
+# ---- network between the games: direct, or through the coop-anything chaos box (tools\chaos) as a bad internet link
+$joinAddr = "127.0.0.1"
+$chaosInfo = $null
+if ($Chaos) {
+    $chaosDir = (Resolve-Path $ChaosDir).Path
+    $chaosInfo = "$runDir\chaos_info.json"
+    $relay = Start-Process $Py -ArgumentList @("-I", "`"$chaosDir\chaos.py`"", "relay", "--target", "127.0.0.1:1943", "--profile", $Chaos,
+        "--info-file", "`"$chaosInfo`"", "--seconds", "1500") -PassThru -WindowStyle Hidden
+    for ($i = 0; $i -lt 40 -and -not (Test-Path $chaosInfo); $i++) { Start-Sleep -Milliseconds 250 }
+    $ci = Get-Content $chaosInfo -Raw | ConvertFrom-Json
+    $joinAddr = "127.0.0.1:$($ci.listen)"
+    Check "chaos box up, profile $Chaos" ([bool]$ci.listen) "B joins through $joinAddr"
+}
+
 # ---- B: joins with mp_join.exe, which downloads the battle and starts the game
 $env:MP_TEST = "1"; $env:MP_WINDOW = "$half,0,$half,$($screen.Height)"
 foreach ($k in $Extra.Keys) { Set-Item "env:$k" $Extra[$k] }
-$join = & "$Game\mp_join.exe" 127.0.0.1 $Side 2>&1 | Out-String
+$join = & "$Game\mp_join.exe" $joinAddr $Side 2>&1 | Out-String
 $env:MP_TEST = $null; $env:MP_WINDOW = $null
 foreach ($k in $Extra.Keys) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
 Check "B: mp_join received the battle" ($join -match 'Battle received') ($join.Trim() -replace '\s+', ' ')
