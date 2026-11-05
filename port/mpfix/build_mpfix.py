@@ -1,8 +1,11 @@
-"""Append the .mpfix section (nest_fix.asm + ping.asm + keep_handles.asm) to the ported release 2 and redirect four
-sites to it.
+"""Append the .mpfix section (nest_fix.asm + ping.asm + keep_handles.asm + text.c) to the ported release 2 and
+redirect seven sites to it.
 
   python -I build_mpfix.py <ported basic_network.codelib> <output>            (needs ml64.exe: set ML64 to its path)
-  python -I build_mpfix.py --blob mpfix.bin <ported> <output>                 (use an already assembled section)
+  python -I build_mpfix.py --blob mpfix.bin <ported> <output>                 (use an already built section)
+
+Building text.c needs cl.exe: MSVC_SETUP is the path of a script that sets up the x64 compiler environment
+(vcvars64.bat or the portable setup_x64.bat).
 
 The input must be the output of apply_patch.py with spec_public_15814271.json (SHA-256 checked). The input file is
 never written. Section layout (rva 63000h, read/write/execute):
@@ -12,9 +15,13 @@ never written. Section layout (rva 63000h, read/write/execute):
   +400h ping_draw  from mod rva 2ce0dh: "call 24820h" (5 bytes) -> call ping_draw (which ends with jmp 24820h)
   +700h data (16 bytes, zero)
   +780h keep_handles from mod rva 2f092h: "call 2eca4h" (state_load, 5 bytes) -> call keep_handles
+  +800h text: a jump table to text.c's mp_CreateFontA, mp_GetTextExtentPoint32A, mp_TextOutA (8 bytes each), then
+        text.c linked by link_coff.py. Sites in the mod's text_tex (rva 2b2b8h), each "call [import]" (6 bytes)
+        -> call +800h / +808h / +810h; nop. text.c draws the texts in the game's language (lang_ru.txt) and font.
 """
 import hashlib
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -22,17 +29,27 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ML64 = Path(os.environ.get("ML64", r"D:\programs\msvc_build\msvc\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\ml64.exe"))
+MSVC_SETUP = os.environ.get("MSVC_SETUP", "")
 INPUT_SHA = "6218ff0bb70d0ec5e4627a8031f311f453c79aed8272a879347df4c5ea58a90b"
 SEC_NAME, SEC_RVA = b".mpfix\0\0", 0x63000
 SEC_SIZE = 0x800
 DATA = (0x700, 0x710)
 KEEP = 0x780
+TEXT = 0x800                    # jump table, then text.c
+TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA"]
+MOD_FUNCS = {"mp_log": 0x27DC,   # what text.c uses of the mod: its log function
+             "g_ui_scale": 0x5CBD8}   # and its UI scale (float)
+# font faces text.c tries, in this order: the game's own (registered by the game in its process), then Windows ones
+FACES = ["Segoe Print"]
 # (site rva, bytes there now, stub offset in the section, length to replace)
 SITES = [
     (0x1d182, bytes.fromhex("49 8d 8f d0 01 00 00"), 0x000),
     (0x169e1, bytes.fromhex("0f b6 4e 04 44 89 2d 1c 4f 04 00"), 0x200),
     (0x2ce0d, bytes.fromhex("e8 0e 7a ff ff"), 0x400),
     (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x780),
+    (0x2b4b2, bytes.fromhex("ff 15 90 8b 01 00"), 0x800),   # CreateFontA
+    (0x2b4eb, bytes.fromhex("ff 15 3f 8b 01 00"), 0x808),   # GetTextExtentPoint32A
+    (0x2b5d9, bytes.fromhex("ff 15 29 8a 01 00"), 0x810),   # TextOutA
 ]
 # plain byte changes in the mod's own code: (rva, bytes there now, new bytes)
 BYTE_PATCHES = [
@@ -87,9 +104,112 @@ def assemble():
     return bytes(blob)
 
 
+def c_string(data):
+    out = []
+    for b in data:
+        c = chr(b)
+        out.append(c if 32 <= b < 127 and c not in '"\\?' else f"\\{b:03o}")
+    return "".join(out)
+
+
+def text_header():
+    """lang_ru.txt -> text_ru.h (k_ru: English and Russian in turn, Windows-1251; FACES)."""
+    lines = [l.rstrip("\r") for l in (HERE / "lang_ru.txt").read_text(encoding="utf-8").split("\n")]
+    pairs, block = [], []
+    for l in lines + [""]:
+        if l.startswith("#"):
+            continue
+        if l.strip() == "":
+            if block:
+                if len(block) != 2:
+                    sys.exit(f"refused: lang_ru.txt: an entry of {len(block)} lines: {block!r}")
+                pairs.append(tuple(block))
+            block = []
+        else:
+            block.append(l)
+    seen = set()
+    blob = b""
+    for en, ru in pairs:
+        if en in seen:
+            sys.exit(f"refused: lang_ru.txt: {en!r} twice")
+        seen.add(en)
+        specs = len(re.findall(r"%[-+ #0]*\d*(?:\.\d*)?[lhzIjtL]*[a-zA-Z]", en.replace("%%", "")))
+        used = [int(n) for n in re.findall(r"%([1-9])", ru.replace("%%", ""))]
+        if any(n > specs for n in used):
+            sys.exit(f"refused: lang_ru.txt: {ru!r} uses a value {en!r} does not have")
+        try:
+            blob += en.encode("ascii") + b"\0" + ru.encode("cp1251") + b"\0"
+        except UnicodeEncodeError as e:
+            sys.exit(f"refused: lang_ru.txt: {en!r}: {e}")
+    blob += b"\0"
+    faces = "".join(f + "\\0" for f in FACES)
+    rows = [blob[i:i + 60] for i in range(0, len(blob), 60)]
+    text = ("/* made by build_mpfix.py from lang_ru.txt - do not edit */\n"
+            f"static const char k_ru[{len(blob)}] =\n" + "\n".join(f'    "{c_string(r)}"' for r in rows) + ";\n"
+            f'#define FACES L"{faces}"\n')
+    (HERE / "text_ru.h").write_text(text, encoding="ascii", newline="\n")
+    print(f"lang_ru.txt: {len(pairs)} entries, {len(blob)} bytes")
+
+
+def build_text(imports):
+    """text.c -> the code at TEXT: jump table + linked object."""
+    sys.path.insert(0, str(HERE))   # python -I leaves the script folder out
+    import link_coff
+    text_header()
+    if not MSVC_SETUP:
+        sys.exit("set MSVC_SETUP to a script that sets up the x64 compiler (vcvars64.bat), or use --blob")
+    obj = HERE / "text.obj"
+    cmd = f'call "{MSVC_SETUP}" >nul && cl /nologo /c /O1 /GS- /Gs1000000 /Zl /MD /W4 /wd4100 /Fo"{obj}" text.c'
+    subprocess.run(cmd, shell=True, check=True, cwd=HERE)
+    base = SEC_RVA + TEXT + 8 * len(TEXT_ENTRIES)
+    code, syms = link_coff.link(obj.read_bytes(), base, imports, MOD_FUNCS)
+    table = bytearray()
+    for name in TEXT_ENTRIES:
+        if name not in syms:
+            sys.exit(f"refused: text.c does not define {name}")
+        at = SEC_RVA + TEXT + len(table)
+        table += b"\xe9" + struct.pack("<i", syms[name] - (at + 5)) + b"\xcc" * 3
+    print(f"text.c: {len(code):#x} bytes at rva {base:#x}")
+    return bytes(table) + code
+
+
+def mod_imports(data):
+    """{function name: import slot rva} of the input module."""
+    pe = struct.unpack_from("<I", data, 0x3C)[0]
+    opt = pe + 24
+    nsec = struct.unpack_from("<H", data, pe + 6)[0]
+    table = opt + struct.unpack_from("<H", data, pe + 20)[0]
+
+    def off(rva):
+        for i in range(nsec):
+            vsize, va, rsize, rptr = struct.unpack_from("<IIII", data, table + 40 * i + 8)
+            if va <= rva < va + max(vsize, rsize):
+                return rptr + rva - va
+        sys.exit(f"refused: rva {rva:#x} is in no section")
+
+    imp_rva = struct.unpack_from("<I", data, opt + 112 + 8)[0]
+    out = {}
+    d = off(imp_rva)
+    while True:
+        oft, _, _, name, ft = struct.unpack_from("<IIIII", data, d)
+        if not name:
+            break
+        k = 0
+        while True:
+            ent = struct.unpack_from("<Q", data, off(oft or ft) + 8 * k)[0]
+            if not ent:
+                break
+            if not ent >> 63:
+                n = off(ent + 2)
+                out[data[n:data.index(b"\0", n)].decode()] = ft + 8 * k
+            k += 1
+        d += 20
+    return out
+
+
 def check_blob(blob):
-    if len(blob) != SEC_SIZE:
-        sys.exit(f"refused: section blob is {len(blob):#x} bytes, expected {SEC_SIZE:#x}")
+    if len(blob) <= TEXT + 8 * len(TEXT_ENTRIES) or any(blob[TEXT + 8 * i] != 0xE9 for i in range(len(TEXT_ENTRIES))):
+        sys.exit(f"refused: section blob ({len(blob):#x} bytes) has no text.c jump table at {TEXT:#x}")
     for off, want in PC_CHECKS:
         if blob[off:off + len(want)] != want:
             sys.exit(f"refused: the stub at +{off:#x} does not start with its call/pop")
@@ -112,7 +232,7 @@ def main():
     if hashlib.sha256(data).hexdigest() != INPUT_SHA:
         sys.exit(f"refused: {src.name} is not the ported release 2 ({INPUT_SHA[:16]}...)")
     if blob is None:
-        blob = assemble()
+        blob = assemble() + build_text(mod_imports(data))
         (HERE / "mpfix.bin").write_bytes(blob)
     check_blob(blob)
 
@@ -130,13 +250,14 @@ def main():
         sys.exit(f"refused: SizeOfImage is {size_of_image:#x}, expected {SEC_RVA:#x}")
     raw_ptr = len(data)
     assert raw_ptr % file_align == 0
-    raw_size = (len(blob) + file_align - 1) // file_align * file_align
+    stored = blob.rstrip(b"\0")       # trailing zeros (text.c's buffers) are not stored: the loader zero-fills them
+    raw_size = (len(stored) + file_align - 1) // file_align * file_align
     hdr = SEC_NAME + struct.pack("<IIIIIIHHI", len(blob), SEC_RVA, raw_size, raw_ptr, 0, 0, 0, 0,
                                  0xE0000020)   # code, execute, read, write (the ping state lives at +700h)
     data[new_hdr:new_hdr + 40] = hdr
     struct.pack_into("<H", data, pe + 6, nsec + 1)
     struct.pack_into("<I", data, opt + 56, SEC_RVA + (len(blob) + sec_align - 1) // sec_align * sec_align)
-    data += blob.ljust(raw_size, b"\0")
+    data += stored.ljust(raw_size, b"\0")
 
     for rva, want, off in SITES:
         site = None

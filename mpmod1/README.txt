@@ -1,10 +1,11 @@
 GRAVITEAM TACTICS: MIUS-FRONT - MULTIPLAYER  (mpmod1, test version)
 For game version 6.00, build 3598 (the final Steam version). Two players: one hosts, one joins.
-MiusPlayer-Port 2.1.0: this copy is ported to the current Steam "public" branch (buildid 15814271,
+Mius-Front Multiplayer 2.3.0: this copy is ported to the current Steam "public" branch (buildid 15814271,
 build 3598 compiled 2024-09-24). game_build_3598.sha256 lists THAT build. basic_network.codelib is
-release 2 with 30 address fixes and one bug fix (static emplacements followed on the host).
-Both players need this same file: SHA-256 cd9ae1b8ab09bee363fb3ba26af25373b0ce2c53009f2620824e23b42c493b7c
-Both players need the same mpmod1: network version 20, module built 2026-10-14 19:13.
+release 2 ported, with fixes (MG nests, ping, host crash, trench pits) and Russian/English texts in the
+game's own fonts (Russian when the game runs in Russian; set MP_LANG=en or ru to override).
+Both players need this same file: SHA-256 8e7e6447048d2cae460f3e96bec8b040f09d8cacd4b50c054c1da3a608af99af
+Both players need the same mpmod1: network version 20, module built 2026-11-06.
 
 QUICK START
   1. Put the whole "mpmod1" folder into the game folder - the one that contains starter_x64.exe.

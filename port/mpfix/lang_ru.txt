@@ -1,0 +1,591 @@
+# Mius-Front Multiplayer: Russian texts. Shown when the game runs in Russian (root\engine.txt says loc_rus) or
+# when MP_LANG=ru is set; with English the mod's own texts are shown.
+#
+# Pairs: the English line exactly as the mod draws it, the Russian line under it, an empty line between pairs.
+# In the English line %s %u %d %.1f %02d ... stand for values (a name, a number). In the Russian line %1 %2 ...
+# put them back, numbered in the English order; %% is a percent sign. A value is translated as well when it is
+# an entry of its own here ("the host", "Germany", "deployment" ...). An English line starting with ~ is a piece
+# that is replaced inside values nothing else matched.
+# The first entry that matches wins: keep longer patterns above shorter ones that would also match.
+# Saved as UTF-8; build_mpfix.py turns it into text_ru.h (Windows-1251).
+
+# ---------------------------------------------------------------- names the mod puts into other texts
+the host
+хост
+
+the other player
+другой игрок
+
+another player
+другой игрок
+
+no name
+без имени
+
+Germans
+Германия
+
+Soviets
+СССР
+
+deployment
+расстановка
+
+the initial orders
+начальные приказы
+
+initial orders
+начальные приказы
+
+an operation
+операция
+
+a custom mission
+своя миссия
+
+a skirmish
+схватка
+
+ready
+готов
+
+not ready yet
+ещё не готов
+
+connected
+подключён
+
+connected, starting
+подключён, бой начинается
+
+asks for a pause
+просит паузу
+
+no longer asks for a pause
+больше не просит паузу
+
+the side of the operation
+сторона операции
+
+the opposing side
+противоположная сторона
+
+the mission's ENEMY force
+силы ПРОТИВНИКА миссии
+
+the mission's PLAYER force
+силы ИГРОКА миссии
+
+ENEMY force of the battle setup
+силы ПРОТИВНИКА из настроек боя
+
+OWN force of the battle setup
+СВОИ силы из настроек боя
+
+the host has it.
+он у хоста.
+
+the host cannot use it - it is not of your side.
+хост не может его взять - это не ваша сторона.
+
+being sent to the host...
+отправляется хосту...
+
+~ - set YEAR AND SEASON back to the host's
+ - верните ГОД И СЕЗОН как у хоста
+
+~ - set your own side to the
+ - поставьте своей стороной:
+
+~, waiting for the other player
+, ждём другого игрока
+
+~, waiting for
+, ждём:
+
+# ---------------------------------------------------------------- main menu and the multiplayer menu
+MULTIPLAYER
+СЕТЕВАЯ ИГРА
+
+Two players: one hosts, the other joins
+Два игрока: один создаёт игру, другой подключается
+
+HOST A SKIRMISH
+СОЗДАТЬ СХВАТКУ
+
+HOST A CUSTOM MISSION
+СОЗДАТЬ ИГРУ ПО МИССИИ
+
+HOST AN OPERATION
+СОЗДАТЬ ОПЕРАЦИЮ
+
+JOIN A GAME
+ВОЙТИ В ИГРУ
+
+BACK
+НАЗАД
+
+Host port (UDP)
+Порт (UDP)
+
+Open it by UPnP
+Открыть через UPnP
+
+Host address (type it, or Ctrl+V to paste)
+Адрес хоста (Ctrl+V: вставить)
+
+Port
+Порт
+
+CONNECT
+ПОДКЛЮЧИТЬСЯ
+
+STEAM FRIENDS HOSTING A GAME
+ДРУЗЬЯ В STEAM, СОЗДАВШИЕ ИГРУ
+
+Steam is not available to this game.
+Steam недоступен этой игре.
+
+None of your Steam friends is hosting right now.
+Сейчас никто из ваших друзей в Steam не создал игру.
+
+A friend who hosts shows up here; joining him needs no address and no port.
+Друг, создавший игру, появится здесь; адрес и порт не нужны.
+
+custom mission
+своя миссия
+
+operation
+операция
+
+skirmish
+схватка
+
+hosts %s %s
+создал игру: %1 %2
+
+JOIN
+ВОЙТИ
+
+The port to host on has to be a number from 1 to 65535 (empty: 1943).
+Порт хоста - число от 1 до 65535 (пусто: 1943).
+
+The port has to be a number from 1 to 65535 (empty: 1943).
+Порт - число от 1 до 65535 (пусто: 1943).
+
+Joining through Steam is done from the game's menu, with Steam running.
+Подключение через Steam делается из меню игры при запущенном Steam.
+
+Enter the host's address first.
+Сначала введите адрес хоста.
+
+That address could not be found.
+Этот адрес не найден.
+
+The host runs a different version of the multiplayer files.
+У хоста другая версия файлов сетевой игры.
+
+The host sent an invalid battle.
+Хост прислал неверный бой.
+
+The host sent an invalid operation save.
+Хост прислал неверное сохранение операции.
+
+The battle arrived damaged. Try again.
+Бой пришёл повреждённым. Попробуйте ещё раз.
+
+The host's battle could not be prepared for the other side.
+Бой хоста не удалось подготовить для другой стороны.
+
+Could not save the battle to the game folder.
+Не удалось сохранить бой в папку игры.
+
+Could not start the battle.
+Не удалось начать бой.
+
+The host's operation save could not be recognised.
+Сохранение операции хоста не распознано.
+
+Could not save the operation to the profile folder.
+Не удалось сохранить операцию в папку профиля.
+
+Could not start the operational map.
+Не удалось открыть оперативную карту.
+
+Restored %s (%d files). Continue it from the Operations screen.
+Восстановлено: %1 (файлов: %2). Продолжите её с экрана ОПЕРАЦИИ.
+
+# ---------------------------------------------------------------- lobby
+MULTIPLAYER LOBBY
+ЛОББИ СЕТЕВОЙ ИГРЫ
+
+Operation
+Операция
+
+Custom mission
+Своя миссия
+
+Skirmish
+Схватка
+
+%s  (host)
+%1  (хост)
+
+in the battle
+в бою
+
+setting up
+готовит бой
+
+READY
+ГОТОВ
+
+NOT READY
+НЕ ГОТОВ
+
+not ready
+не готов
+
+your address
+ваш адрес
+
+Looking for %s through Steam ...  (%u s)
+Ищем %1 через Steam ...  (%2 с)
+
+Looking for the host at %s ...  (%u s)
+Ищем хост по адресу %1 ...  (%2 с)
+
+Waiting for a player to join at  %s : %u
+Ждём подключения игрока по адресу  %1 : %2
+
+  Your public address:
+  Ваш внешний адрес:
+
+UPnP: the router passes UDP port %u on to this PC.%s%s
+UPnP: роутер передаёт UDP-порт %1 на этот компьютер.%2%3
+
+UPnP: asking the router to pass UDP port %u on to this PC ...
+UPnP: просим роутер передавать UDP-порт %1 на этот компьютер ...
+
+UPnP: the router did not open the port - forward UDP port %u to this PC by hand.
+UPnP: роутер не открыл порт - пробросьте UDP-порт %1 на этот компьютер вручную.
+
+UPnP is off - players outside your network need UDP port %u forwarded to this PC.
+UPnP выключен - игрокам вне вашей сети нужен проброс UDP-порта %1 на этот компьютер.
+
+Your Steam friends find this game on their JOIN A GAME screen - they need no address and no open port.
+Друзья в Steam найдут эту игру на экране ВОЙТИ В ИГРУ - им не нужны ни адрес, ни открытый порт.
+
+The host opens the operation from the side he wants to play; modifiers are set on the Operations screen.
+Хост открывает операцию за ту сторону, за которую хочет играть; модификаторы задаются на экране ОПЕРАЦИИ.
+
+On the operational map both players move their own forces at the same time; the turn ends when both have pressed next turn.
+На оперативной карте оба игрока двигают свои силы одновременно; ход заканчивается, когда оба нажмут «Следующий ход».
+
+The host picks a mission on the Missions screen: the prepared ones and those made in the battle editor.
+Хост выбирает миссию на экране МИССИИ: готовые и созданные в редакторе боя.
+
+The mission travels to the other player with the battle. SWAP SIDES exchanges who commands which force.
+Миссия уходит другому игроку вместе с боем. ПОМЕНЯТЬСЯ СТОРОНАМИ меняет, кто какими силами командует.
+
+The host sets up the battle on the Skirmish screen. The other player may pick his own force with CHOOSE MY FORCE;
+Хост настраивает бой на экране СХВАТКА. Другой игрок может выбрать свои силы кнопкой ВЫБРАТЬ СВОИ СИЛЫ;
+
+otherwise he commands the one the setup gives him. SWAP SIDES exchanges who commands which.
+иначе он командует теми, что дают настройки. ПОМЕНЯТЬСЯ СТОРОНАМИ меняет, кто чем командует.
+
+Your force costs %u: the other player's own force may cost as much.
+Ваши силы стоят %1: силы другого игрока могут стоить столько же.
+
+Choose your force on the Skirmish screen: what it costs is the most the other player's own force may cost.
+Выберите силы на экране СХВАТКА: их стоимость - предел для сил другого игрока.
+
+his own force: %u squads of the %s, cost %u
+его силы: %1 отд. (%2), стоимость %3
+
+his own force: %u squads of the %s
+его силы: %1 отд. (%2)
+
+Your own force: %u squads of the %s - %s
+Ваши силы: %1 отд. (%2) - %3
+
+Your own force: %u squads of the %s, cost %u.
+Ваши силы: %1 отд. (%2), стоимость %3.
+
+You command the %s. CHOOSE MY FORCE opens the Skirmish screen: the %s as your side, units costing up to %u (the host's force), then its start button.
+Ваша сторона: %1. ВЫБРАТЬ СВОИ СИЛЫ открывает экран СХВАТКА: сторона %2, отряды стоимостью до %3 (силы хоста), затем кнопка начала боя.
+
+You command the %s. Your own force may cost as much as the host's - he has not chosen his yet.
+Ваша сторона: %1. Ваши силы могут стоить столько же, сколько силы хоста - он свои ещё не выбрал.
+
+The host's battle is still in deployment: CHOOSE MY FORCE (the %s, up to %u) puts your own force in - his battle starts again with it.
+Бой хоста ещё в расстановке: ВЫБРАТЬ СВОИ СИЛЫ (%1, до %2) добавит ваши силы - его бой начнётся заново с ними.
+
+Operational map received. Opening it...
+Оперативная карта получена. Открываем...
+
+Battle received. Starting...
+Бой получен. Начинаем...
+
+No multiplayer operation saves yet. One is written every time an operation battle starts.
+Сохранений сетевых операций пока нет. Сохранение пишется при начале каждого боя операции.
+
+%s, saved %02u.%02u. %02u:%02u
+%1, сохранено %2.%3. %4:%5
+
+RESTORE
+ВОССТАНОВИТЬ
+
+SWAP SIDES
+ПОМЕНЯТЬСЯ СТОРОНАМИ
+
+CHOOSE THE OPERATION
+ВЫБРАТЬ ОПЕРАЦИЮ
+
+CHOOSE THE MISSION
+ВЫБРАТЬ МИССИЮ
+
+SET UP THE BATTLE
+НАСТРОИТЬ БОЙ
+
+LEAVE THE LOBBY
+ВЫЙТИ ИЗ ЛОББИ
+
+CHOOSE MY FORCE
+ВЫБРАТЬ СВОИ СИЛЫ
+
+Receiving the operational map...  %d%%
+Получаем оперативную карту...  %1%%
+
+Receiving the battle...  %d%%
+Получаем бой...  %1%%
+
+No answer yet. Steam is looking for a way to the host's game; that can take a moment.
+Ответа пока нет. Steam ищет путь к игре хоста; это может занять время.
+
+No answer yet. Check the address and the port, and that UDP port %u reaches the host.
+Ответа пока нет. Проверьте адрес и порт и что UDP-порт %1 доходит до хоста.
+
+The host is in the battle. Press READY to enter it.
+Хост в бою. Нажмите ГОТОВ, чтобы войти в него.
+
+Press READY when you are; the battle starts when the host starts it.
+Нажмите ГОТОВ, когда будете готовы; бой начнётся, когда его начнёт хост.
+
+Ready. Waiting for the host to start the battle...
+Готово. Ждём, когда хост начнёт бой...
+
+# ---------------------------------------------------------------- choosing one's own force (Skirmish screen)
+Your force could not be read from the Skirmish screen. Press CHOOSE MY FORCE to try again.
+Не удалось прочитать ваши силы с экрана СХВАТКА. Нажмите ВЫБРАТЬ СВОИ СИЛЫ ещё раз.
+
+That force is of the %s; you command the %s in this battle. CHOOSE MY FORCE again with the %s as your side.
+Эти силы - сторона %1, а в этом бою ваша сторона: %2. Нажмите ВЫБРАТЬ СВОИ СИЛЫ снова, сторона: %3.
+
+Your force could not be kept (users folder).
+Не удалось сохранить ваши силы (папка users).
+
+The host's battle has begun - your own force can only go into the next one. Leave this screen and press READY to enter the battle.
+Бой хоста уже начался - ваши силы попадут только в следующий. Выйдите с этого экрана и нажмите ГОТОВ, чтобы войти в бой.
+
+The host has not chosen his force yet - its cost is your limit. Wait for it, then press start again.
+Хост ещё не выбрал свои силы - их стоимость будет вашим пределом. Дождитесь и нажмите начало боя снова.
+
+Your force could not be priced.
+Не удалось посчитать стоимость ваших сил.
+
+You command the %s in this battle: set your own side to the %s.
+В этом бою ваша сторона: %1. Поставьте своей стороной: %2.
+
+The battle is in the host's year and season: set YEAR AND SEASON back to what the screen opened with, then pick your units.
+Бой идёт в год и сезон хоста: верните ГОД И СЕЗОН, с которыми открылся экран, затем выбирайте отряды.
+
+Your force costs %u - the host's costs %u. Take something out.
+Ваши силы стоят %1, силы хоста - %2. Уберите что-нибудь.
+
+MULTIPLAYER - your own force: cost %u of %u allowed (what the host's force costs)%s%s%s
+СЕТЕВАЯ ИГРА - ваши силы: стоимость %1 из %2 (столько стоят силы хоста)%3%4%5
+
+MULTIPLAYER - the host's battle has begun: your own force can only go into the next one
+СЕТЕВАЯ ИГРА - бой хоста уже начался: ваши силы попадут только в следующий
+
+MULTIPLAYER - the host has not chosen his force yet: its cost will be your limit
+СЕТЕВАЯ ИГРА - хост ещё не выбрал свои силы: их стоимость будет вашим пределом
+
+# ---------------------------------------------------------------- operational map
+OPERATIONAL MAP
+ОПЕРАТИВНАЯ КАРТА
+
+Both players have ended the turn.
+Оба игрока закончили ход.
+
+Your moves go to the host's game, which carries the turn out. The map reloads with the result -
+Ваши ходы уходят в игру хоста, она проводит ход. Карта перезагрузится с результатом -
+
+or, if the host starts a battle of this turn, your game enters that battle.
+или, если хост начнёт бой этого хода, ваша игра войдёт в этот бой.
+
+Ending the turn with %s's moves...
+Заканчиваем ход с ходами игрока %1...
+
+His moves are fetched and put into your operation; the map reloads and the turn ends.
+Его ходы получены и вносятся в вашу операцию; карта перезагрузится, и ход закончится.
+
+# ---------------------------------------------------------------- the line at the top of the screen
+MULTIPLAYER  -  %s on the operational map  -  %s
+СЕТЕВАЯ ИГРА  -  %1 на оперативной карте  -  %2
+
+MULTIPLAYER  -  %s  -  %s
+СЕТЕВАЯ ИГРА  -  %1  -  %2
+
+%s (%s)  vs  %s (%s)
+%1 (%2)  против  %3 (%4)
+
+%s watching %s (%s)
+%1 смотрит: %2 (%3)
+
+%s is hosting %s
+%1 создал игру: %2
+
+connecting to %s
+подключение к %1
+
+connecting to the host
+подключение к хосту
+
+waiting for a player at %s:%u
+ждём игрока по адресу %1:%2
+
+UDP port %u is busy, retrying
+UDP-порт %1 занят, пробуем снова
+
+%s has left, returning to the menu
+%1 вышел, возвращаемся в меню
+
+%s has joined and is %s  (F9: lobby)
+%1 подключился, статус: %2  (F9: лобби)
+
+%s has started the battle - entering it
+%1 начал бой - входим в него
+
+the new turn is arriving
+приходит новый ход
+
+the turn is being carried out - the map reloads with the result (orders given now do not count)
+ход проводится - карта перезагрузится с результатом (приказы, отданные сейчас, не учитываются)
+
+both players have ended the turn - sending your moves
+оба игрока закончили ход - отправляем ваши ходы
+
+you have ended the turn - waiting for %s to finish his orders  (next turn again: take it back)
+вы закончили ход - ждём, пока %1 отдаст приказы  («Следующий ход» ещё раз: отменить)
+
+you have ended the turn - waiting for %s  (next turn again: go on giving orders)
+вы закончили ход - ждём: %1  («Следующий ход» ещё раз: продолжить отдавать приказы)
+
+%s has ended his turn - press next turn when your orders are given
+%1 закончил ход - нажмите «Следующий ход», когда отдадите приказы
+
+%s has finished his orders - press next turn when yours are given
+%1 отдал приказы - нажмите «Следующий ход», когда отдадите свои
+
+%s is moving his forces on his own map - the turn ends when both have pressed next turn
+%1 двигает свои силы на своей карте - ход закончится, когда оба нажмут «Следующий ход»
+
+move your own forces; the turn ends when both players have pressed next turn
+двигайте свои силы; ход закончится, когда оба игрока нажмут «Следующий ход»
+
+%s is getting his copy of the map
+%1 получает свою копию карты
+
+ending the turn with %s's moves
+заканчиваем ход с ходами игрока %1
+
+the other player's game is gone - next turn ends the turn without him
+игры другого игрока больше нет - «Следующий ход» закончит ход без него
+
+turn ended with both players' moves
+ход закончен с ходами обоих игроков
+
+waiting for %s to finish %s
+ждём, пока %1 закончит этап «%2»
+
+%s has finished %s, press Start when ready
+%1 закончил этап «%2», нажмите «Начать бой!», когда будете готовы
+
+%s ends when both players press Start
+этап «%1» закончится, когда оба игрока нажмут «Начать бой!»
+
+waiting for %s's game to catch up
+ждём, пока игра игрока %1 догонит
+
+catching up with %s's game
+догоняем игру игрока %1
+
+your force is withdrawing - the battle ends in %d:%02d
+ваши силы отступают - бой закончится через %1:%2
+
+%s is withdrawing - the battle ends in %d:%02d
+%1 отступает - бой закончится через %2:%3
+
+ceasefire agreed - the battle ends in %d s
+прекращение огня согласовано - бой закончится через %1 с
+
+%s proposes a ceasefire  (ESC menu: CEASEFIRE to accept)
+%1 предлагает прекращение огня  (меню ESC: ПРЕКРАЩЕНИЕ ОГНЯ, чтобы принять)
+
+you have proposed a ceasefire - waiting for %s
+вы предложили прекращение огня - ждём ответа: %1
+
+paused by both players - it goes on when either of you un-pauses
+пауза у обоих игроков - бой пойдёт, когда любой из вас снимет паузу
+
+you have asked for a pause - it starts when %s pauses too
+вы попросили паузу - она начнётся, когда %1 тоже поставит паузу
+
+%s asks for a pause - pause as well to agree
+%1 просит паузу - поставьте паузу, чтобы согласиться
+
+you have asked for speed x%.1f - the battle runs at x%.1f until %s asks for it too
+вы попросили скорость x%1 - бой идёт на x%2, пока %3 тоже не попросит её
+
+%s asks for speed x%.1f - set your speed to agree
+%1 просит скорость x%2 - поставьте такую же, чтобы согласиться
+
+speed x%.1f, agreed by both players
+скорость x%1, согласована обоими игроками
+
+ping %u ms
+пинг %1 мс
+
+# ---------------------------------------------------------------- the battle's ESC menu
+CEASEFIRE AGREED
+ПРЕКРАЩЕНИЕ ОГНЯ СОГЛАСОВАНО
+
+The battle ends a few seconds after the menu is closed. Press again to take your word back.
+Бой закончится через несколько секунд после закрытия меню. Нажмите ещё раз, чтобы взять слово назад.
+
+CEASEFIRE PROPOSED
+ПРЕКРАЩЕНИЕ ОГНЯ ПРЕДЛОЖЕНО
+
+Waiting for %s to choose CEASEFIRE as well. Press again to take the proposal back.
+Ждём, пока %1 тоже выберет ПРЕКРАЩЕНИЕ ОГНЯ. Нажмите ещё раз, чтобы отозвать предложение.
+
+ACCEPT CEASEFIRE
+ПРИНЯТЬ ПРЕКРАЩЕНИЕ ОГНЯ
+
+%s proposes a ceasefire. The battle ends when you accept.
+%1 предлагает прекращение огня. Бой закончится, когда вы согласитесь.
+
+CEASEFIRE
+ПРЕКРАЩЕНИЕ ОГНЯ
+
+Propose to end the battle now. It ends when %s chooses CEASEFIRE too.
+Предложить закончить бой сейчас. Он закончится, когда %1 тоже выберет ПРЕКРАЩЕНИЕ ОГНЯ.
+
+# ---------------------------------------------------------------- general shapes, last: they match a lot
+%s  -  %s
+%1  -  %2
+
+%s (%s)
+%1 (%2)
