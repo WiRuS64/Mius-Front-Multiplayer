@@ -1,5 +1,5 @@
-"""Append the .mpfix section (nest_fix.asm + ping.asm + keep_handles.asm + text.c) to the ported release 2 and
-redirect seven sites to it.
+"""Append the .mpfix section (nest_fix.asm + ping.asm + text.c with fixes.c) to the ported release 2 and
+redirect eight sites to it.
 
   python -I build_mpfix.py <ported basic_network.codelib> <output>            (needs ml64.exe: set ML64 to its path)
   python -I build_mpfix.py --blob mpfix.bin <ported> <output>                 (use an already built section)
@@ -14,10 +14,14 @@ never written. Section layout (rva 63000h, read/write/execute):
   +200h ping_rx    from mod rva 169e1h: "movzx ecx, byte [rsi+4]; mov [5b908h], r13d" (11 bytes) -> call; 6 nop
   +400h ping_draw  from mod rva 2ce0dh: "call 24820h" (5 bytes) -> call ping_draw (which ends with jmp 24820h)
   +700h data (16 bytes, zero)
-  +780h keep_handles from mod rva 2f092h: "call 2eca4h" (state_load, 5 bytes) -> call keep_handles
+  +780h (free; keep_handles.asm of 2.2.1 lived here, now fixes.c)
   +800h text: a jump table to text.c's mp_CreateFontA, mp_GetTextExtentPoint32A, mp_TextOutA (8 bytes each), then
         text.c linked by link_coff.py. Sites in the mod's text_tex (rva 2b2b8h), each "call [import]" (6 bytes)
         -> call +800h / +808h / +810h; nop. text.c draws the texts in the game's language (lang_ru.txt) and font.
+        +818h mp_state_load_keep (fixes.c) from mod rva 2f092h: "call 2eca4h" (state_load, 5 bytes): a vehicle
+        keeps its own model and turret/gun render handles when the other game's state is loaded.
+        +820h mp_log_path (fixes.c) from mod rva 2757h: "call 18ech" (sprintf_s of the log file name): logs go
+        to the mp_logs folder of the game.
 """
 import hashlib
 import os
@@ -34,10 +38,10 @@ INPUT_SHA = "6218ff0bb70d0ec5e4627a8031f311f453c79aed8272a879347df4c5ea58a90b"
 SEC_NAME, SEC_RVA = b".mpfix\0\0", 0x63000
 SEC_SIZE = 0x800
 DATA = (0x700, 0x710)
-KEEP = 0x780
 TEXT = 0x800                    # jump table, then text.c
-TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA"]
+TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA", "mp_state_load_keep", "mp_log_path"]
 MOD_FUNCS = {"mp_log": 0x27DC,   # what text.c uses of the mod: its log function
+             "state_load": 0x2ECA4,   # fixes.c: the mod's state_load
              "g_ui_scale": 0x5CBD8}   # and its UI scale (float)
 # font faces text.c tries, in this order: the game's own (registered by the game in its process), then Windows ones
 FACES = ["Segoe Print"]
@@ -46,7 +50,8 @@ SITES = [
     (0x1d182, bytes.fromhex("49 8d 8f d0 01 00 00"), 0x000),
     (0x169e1, bytes.fromhex("0f b6 4e 04 44 89 2d 1c 4f 04 00"), 0x200),
     (0x2ce0d, bytes.fromhex("e8 0e 7a ff ff"), 0x400),
-    (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x780),
+    (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x818),   # state_load -> mp_state_load_keep
+    (0x2757, bytes.fromhex("e8 90 f1 ff ff"), 0x820),    # sprintf_s of the log name -> mp_log_path
     (0x2b4b2, bytes.fromhex("ff 15 90 8b 01 00"), 0x800),   # CreateFontA
     (0x2b4eb, bytes.fromhex("ff 15 3f 8b 01 00"), 0x808),   # GetTextExtentPoint32A
     (0x2b5d9, bytes.fromhex("ff 15 29 8a 01 00"), 0x810),   # TextOutA
@@ -65,7 +70,6 @@ PC_CHECKS = [
     (0x000, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63006h
     (0x200, bytes.fromhex("41 53 e8 00 00 00 00 41 5b")),    # push r11; call; pop r11      -> base + 63207h
     (0x400, bytes.fromhex("55 e8 00 00 00 00 5d")),          # push rbp; call; pop rbp      -> base + 63406h
-    (0x780, bytes.fromhex("53 e8 00 00 00 00 5b")),          # push rbx; call; pop rbx      -> base + 63786h
 ]
 
 
@@ -87,20 +91,17 @@ def text_of(obj):
 
 def assemble():
     parts = {}
-    for name in ("nest_fix", "ping", "keep_handles"):
+    for name in ("nest_fix", "ping"):
         obj = HERE / f"{name}.obj"
         subprocess.run([str(ML64), "/nologo", "/c", f"/Fo{obj}", str(HERE / f"{name}.asm")], check=True, cwd=HERE)
         parts[name] = text_of(obj)
-    nest, ping, keep = parts["nest_fix"], parts["ping"], parts["keep_handles"]
+    nest, ping = parts["nest_fix"], parts["ping"]
     if len(nest) > 0x200 or any(ping[:0x200]):
         sys.exit("refused: nest_fix is over 200h bytes or ping.asm has code below 200h")
     if not DATA[0] < len(ping) <= DATA[1] or any(ping[DATA[0]:]):
         sys.exit(f"refused: ping.asm is {len(ping):#x} bytes, the data at 700h must be zero")
-    if not KEEP < len(keep) <= SEC_SIZE or any(keep[:KEEP]):
-        sys.exit("refused: keep_handles.asm must start at 780h and fit the section")
     blob = bytearray(ping.ljust(SEC_SIZE, b"\0"))
     blob[:len(nest)] = nest
-    blob[KEEP:len(keep)] = keep[KEEP:]
     return bytes(blob)
 
 

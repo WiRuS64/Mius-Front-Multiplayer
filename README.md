@@ -1,4 +1,4 @@
-# Mius-Front Multiplayer 2.3.0
+# Mius-Front Multiplayer 2.4.0
 
 Two-player multiplayer (versus) for **Graviteam Tactics: Mius-Front** on the current Steam build, in Russian or
 English as the game is, drawn with the game's own fonts.
@@ -9,21 +9,22 @@ build 3598, so on the current game many of its hooks were off and battles never 
 
 | | |
 |---|---|
-| Version | **2.3.0** |
+| Version | **2.4.0** |
 | Game | Graviteam Tactics: Mius-Front, Steam app 312980, branch `public`, buildid 15814271 (GRAVITECH3 6.00, assembly 3598, compiled 2024-09-24) |
 | Not for | the Steam `public_beta` branch (untested), other stores (untested) |
-| `basic_network.codelib` SHA-256 | `8e7e6447048d2cae460f3e96bec8b040f09d8cacd4b50c054c1da3a608af99af` |
+| `basic_network.codelib` SHA-256 | `a1e40365f9b6df2c39526c5e76affcd17ad41355f605a19967224130453fcaad` |
 | License | CC0 1.0, like the original |
 
 **Русский:** Mius-Front Multiplayer — сетевая игра вдвоём для Graviteam Tactics: Mius-Front (Steam, ветка
 `public`, buildid 15814271). Основа — мод MiusPlayer (релиз 2), перенесённый на текущую версию игры. Установка:
 папку `mpmod1` положить в папку игры и запустить `mpmod1\Enable_Multiplayer.bat`. У обоих игроков должен быть один и
 тот же файл (SHA-256 выше). С 2.3.0 мод говорит на языке игры: в русской игре все его надписи по-русски, в английской
-по-английски, и рисуются они шрифтами самой игры.
+по-английски, и рисуются они шрифтами самой игры. С 2.4.0 логи мода лежат в папке `mp_logs` в папке игры: её
+можно запаковать и отправить, если что-то пошло не так.
 
 ## Install
 
-1. Download `Mius-Front-Multiplayer-2.3.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game
+1. Download `Mius-Front-Multiplayer-2.4.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game
    folder (the one with `starter_x64.exe`; Steam: right-click the game, Manage, Browse local files).
 2. Close the game and run `mpmod1\Enable_Multiplayer.bat`. It checks the game files against
    `mpmod1\game_build_3598.sha256` (the hashes of Steam buildid 15814271) and copies five files into the game. No
@@ -38,11 +39,19 @@ build 3598, so on the current game many of its hooks were off and battles never 
 | 1 | Ported to Steam 15814271: 27 game addresses, 2 hook signatures, 1 hook length | `port/spec_public_15814271.json` |
 | 2 | Static emplacements (MG nests) on the host follow the joiner's moves | `port/mpfix/nest_fix.asm` |
 | 3 | Ping to the other player, right of the top line (2.2.0) | `port/mpfix/ping.asm` |
-| 4 | No host crash between two PCs: vehicles keep their own render handles (2.2.1) | `port/mpfix/keep_handles.asm` |
+| 4 | No crash between two PCs: vehicles keep their own render handles, the model (2.2.1) and the turrets and guns (2.4.0) | `port/mpfix/fixes.c` |
 | 5 | Operation battles: the other game's trenches are not stamped a second time (no more pits, 2.2.2) | one jump at rva 0x37be0 |
 | 6 | Russian or English as the game is, in the game's own fonts (2.3.0) | `port/mpfix/text.c`, `lang_ru.txt` |
+| 7 | The logs in a folder of their own, `mp_logs` in the game folder; older than 14 days deleted (2.4.0) | `port/mpfix/fixes.c` |
 
-Details of each are in the commit history and the release notes. Change 6:
+Details of each are in the commit history and the release notes.
+
+Change 4, turrets (2.4.0): a vehicle's weapon mounts hold two renderer node handles each, and they travel in
+the unit state like the model handle of 2.2.1. `qa/turret_probe.py` shows it: a handle changed in the host's copy
+of a joiner vehicle is back at the joiner's value 2 s later (with 2.4.0 it stays). A friend's host crashed in
+`basic_render` on such a handle (the renderer numbers its node groups differently on another PC).
+
+Change 6:
 
 - **Language.** The mod's texts are English in its code. `text.c` looks each one up in `port/mpfix/lang_ru.txt`
   (about 190 entries: menus, lobby, the top line in battle and on the map, the ceasefire menu, the ping) when the
@@ -66,11 +75,12 @@ the author's build 42/0 bad, release 2 on Steam 15814271 42/19, this port 42/0.
 All on Steam `public` 15814271, two games on one PC, no mouse or keyboard except where noted. The scripts need
 `_mp_research` from the original repo in the game copy (its `tools` folder) and Python 3 (`MP_PYTHON`).
 
-| Script | What it does | Result with 2.3.0 |
+| Script | What it does | Result with 2.4.0 |
 |---|---|---|
-| `qa/run_text.ps1 [-Lang ru\|en]` | starts one game; frames of the main menu, the multiplayer panel (clicked), the join screen, the lobby; checks the language and that the game's fonts were read | Russian game 6/0, `-Lang en` 6/0 |
-| `qa/run_versus.ps1` | saved test battle, host + joiner: shared Start button, unit agreement, fog of war, crashes | 25/0 (top line and ping in Russian) |
+| `qa/run_text.ps1 [-Lang ru\|en]` | starts one game; frames of the main menu, the multiplayer panel (clicked), the join screen, the lobby; checks the language and that the game's fonts were read | Russian game 6/0 (2.3.0: also `-Lang en` 6/0) |
+| `qa/run_versus.ps1` | saved test battle, host + joiner: shared Start button, unit agreement, fog of war, crashes | 25/0 |
 | `qa/run_operation.ps1` | a new operation through the menus (Stepanovka 1941): map shared, next turn by both, battle from the map, units compared, turn 2 | 40/0 |
+| `qa/turret_probe.py <tools> <host pid> <joiner pid>` | while a versus battle runs: turret handles in both games; one is changed in the host's copy of a joiner vehicle | 2.3.0: put back by the next state load; 2.4.0: kept |
 | `qa/run_operation.ps1 -Trenches` | the same, trenches of both games counted (`qa/trench_dups.py`) | 2.2.2: 40/0 |
 | `qa/run_versus.ps1 -Chaos <profile>` | the joiner through the coop-anything chaos box (delay, loss) | 2.2.0, `transatlantic`: 26/0, ping 204 / 198 ms |
 | `qa/run_steam_join.ps1` | joining as Steam's "Join Game" does, through the mod's Steam stand-in | 2.2.0: 19/1 (the stand-in loses packets) |
@@ -80,8 +90,11 @@ the 5 m check fails (2 units, every sample).
 
 ## Not tested
 
-- Real Steam play between two PCs: tried once with 2.2.0 (crash fixed in 2.2.1). 2.2.1 and later not yet played
-  between two PCs; the pit fix (2.2.2) has to be checked there in an operation battle.
+- Real Steam play between two PCs: 2.2.0 (host crash, fixed in 2.2.1) and 2.3.0 (an operation battle played to
+  the end; a host crash in an earlier battle, fixed in 2.4.0). Known from that game and not fixed yet: the
+  operation map can hang when both press next turn, after leaving an operation the MULTIPLAYER entry is gone,
+  low frame rate at x6 speed, vehicles firing at soldiers already dead, the host's squad names and battle timer
+  missing, the host's losses shown as 0 at the end.
 - Russian texts that only appear in rare situations (a force rejected on the Skirmish screen, UPnP failures,
   withdrawal countdowns) are in the table but were not seen on screen.
 - The `public_beta` branch; different mod versions against each other (use the same version). The lobby may show a

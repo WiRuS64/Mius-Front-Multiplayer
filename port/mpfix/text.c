@@ -578,3 +578,5 @@ BOOL WINAPI mp_TextOutA(HDC dc, int x, int y, LPCSTR s, int len)
         return TRUE;
     return pTextOutW(dc, x, y, g_wide, g_wlen);
 }
+
+#include "fixes.c"   /* non-text fixes: render handles kept on state load, the log folder */
