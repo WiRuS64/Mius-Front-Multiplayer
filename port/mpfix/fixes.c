@@ -60,6 +60,151 @@ int mp_state_load_keep(char *obj, const void *data, size_t size)
     return r;
 }
 
+/* ------------------------------------------------------------------ the turn must not hang (2.6.0)
+   When both players have pressed next turn, the host's game waits for the other game to send its map. The original
+   waits without any limit, and the joining game only sends while its map is on screen (controller +1200h == 0 and
+   the operation pointer +1d8h set). A joining player who left for the Operations screen (or whose game cannot save)
+   never sends; the host's map stays blocked for good. Owner's two-PC game 2026-11-06 14:24: "asking ... for his
+   moves", then nothing until the other game closed.
+
+   mp_host_map_frame runs in the host's map frame instead of "call menu_controller_of" at mod rva 11989h, and
+   gives up on a collection that does not get anywhere: 8 s after the other player has left the map, 45 s when his
+   game has not offered its map, 180 s when the transfer started but did not finish. The turn is not ended; both
+   players press next turn again.
+
+   mp_on_screen_asked is "call operation_on_screen" at mod rva 1a734h, where the joining game answers the host's
+   request: it says in the log and on screen why the moves cannot be sent. */
+extern char g_tactical, g_connected, g_map_collect, g_turn_done, g_peer_on_map, g_map_note[0x78];
+extern unsigned g_map_collect_since, g_map_restart_at, g_map_in_hash;
+void *menu_controller_of(void *om);         /* mod rva 143f0h */
+void *operation_on_screen(void *om);        /* mod rva 17bc8h */
+
+/* The top line of the game; the mod's own branches hide g_map_note in most states of the map, so a note of ours is
+   put in place of the part after the last "  -  " for 12 s (the translation works on the whole line when drawn). */
+static unsigned long g_note_until;
+static char g_status_buf[420];
+const char *session_status(void);           /* mod rva 1daa0h */
+
+static void set_note(const char *s)
+{
+    int i = 0;
+    for (; s[i] && i < (int)sizeof g_map_note - 1; i++) g_map_note[i] = s[i];
+    g_map_note[i] = 0;
+    g_note_until = GetTickCount() + 12000;
+}
+
+/* find_local_ip asks which address the default route uses. With Cloudflare WARP or a similar tunnel (198.18.0.0/15, a
+   range reserved for benchmarks and used by such tools) that is the tunnel's own address: nobody can reach it, and the
+   lobby and the UPnP mapping used it (seen on the owner's PC: "hosting battle on 198.18.0.1"). Then the address of a
+   working network adapter with a gateway is used instead, a private LAN address first. */
+const char *inet_ntop(int af, const void *src, char *buf, size_t n);
+void *malloc(size_t n);
+void free(void *p);
+
+const char *mp_local_ip(int af, const void *src, char *buf, size_t n)
+{
+    typedef HMODULE (WINAPI *load_t)(const char *);
+    typedef unsigned long (WINAPI *gaa_t)(unsigned long, unsigned long, void *, void *, unsigned long *);
+    const char *r = inet_ntop(af, src, buf, n);
+    const unsigned char *a = (const unsigned char *)src;
+    load_t load;
+    HMODULE lib;
+    gaa_t gaa;
+    unsigned long len = 0x10000, best = 0xffffffff;
+    unsigned char ip[4];
+    char *list, *p, *u;
+    if (af != 2 || !r || a[0] != 198 || (a[1] & 0xfe) != 18) return r;
+    load = (load_t)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA");
+    lib = load ? load("iphlpapi.dll") : 0;
+    gaa = lib ? (gaa_t)GetProcAddress(lib, "GetAdaptersAddresses") : 0;
+    list = gaa ? (char *)malloc(len) : 0;
+    if (!list) return r;
+    /* IP_ADAPTER_ADDRESSES (x64): +8 next, +24 first unicast, +100 type, +104 status, +208 first gateway, +216 metric;
+       flags: no anycast, multicast or DNS lists, with gateways */
+    if (gaa(2, 0x8e, 0, list, &len) == 0) {
+        for (p = list; p; p = *(char **)(p + 8)) {
+            unsigned type = *(unsigned *)(p + 100);
+            if (*(unsigned *)(p + 104) != 1 || !*(void **)(p + 208) || type == 24 || type == 131) continue;
+            for (u = *(char **)(p + 24); u; u = *(char **)(u + 8)) {
+                const unsigned char *sa = *(const unsigned char **)(u + 16), *q = sa + 4;
+                unsigned long score = *(unsigned *)(p + 216);
+                int lan = q[0] == 10 || (q[0] == 192 && q[1] == 168) || (q[0] == 172 && (q[1] & 0xf0) == 16);
+                if (sa[0] != 2 || (q[0] == 198 && (q[1] & 0xfe) == 18) || (q[0] == 169 && q[1] == 254) || q[0] == 127) continue;
+                if (!lan) score += 0x10000000ul;
+                if (score < best) { best = score; ip[0] = q[0]; ip[1] = q[1]; ip[2] = q[2]; ip[3] = q[3]; }
+            }
+        }
+    }
+    free(list);
+    if (best != 0xffffffff) {
+        char tunnel[64];
+        int i = 0;
+        for (; buf[i] && i < 63; i++) tunnel[i] = buf[i];
+        tunnel[i] = 0;
+        r = inet_ntop(2, ip, buf, n);
+        mp_log("net: the default route goes through a tunnel (%s); this PC's address on its network is %s", tunnel, buf);
+    }
+    return r;
+}
+
+/* the host's game retries the sharing every 15 s while a battle of this turn is pending; until now only the log said so */
+void mp_no_share_log(const char *fmt)
+{
+    mp_log(fmt);
+    set_note("this turn's battles are not over yet - the map is shared when they are");
+    g_note_until = GetTickCount() + 17000;
+}
+
+const char *mp_session_status(void)
+{
+    const char *line = session_status();
+    if (g_note_until && (long)(GetTickCount() - g_note_until) < 0 && g_map_note[0]) {
+        int n = 0, cut = -1, k = 0;
+        for (; line[n]; n++)
+            if (line[n] == ' ' && line[n + 1] == ' ' && line[n + 2] == '-' && line[n + 3] == ' ' && line[n + 4] == ' ') cut = n;
+        if (cut < 0 || cut > 300) return line;
+        for (n = 0; n < cut + 5; n++) g_status_buf[n] = line[n];
+        for (; g_map_note[k] && n < (int)sizeof g_status_buf - 1; k++) g_status_buf[n++] = g_map_note[k];
+        g_status_buf[n] = 0;
+        return g_status_buf;
+    }
+    return line;
+}
+
+void *mp_host_map_frame(void *om)
+{
+    if (g_map_collect && !g_map_restart_at) {
+        unsigned long waited = GetTickCount() - g_map_collect_since;
+        unsigned long limit = !g_peer_on_map ? 8000ul : g_map_in_hash ? 180000ul : 45000ul;
+        if (waited > limit) {
+            mp_log("map: the other player's moves did not arrive in %lu s (%s); the turn is not ended, press next turn again",
+                   waited / 1000, !g_peer_on_map ? "he has left the map" : g_map_in_hash ? "the transfer did not finish" : "his game did not offer its map");
+            g_map_collect = 0;
+            g_turn_done = 0;
+            g_map_in_hash = 0;
+            set_note("the other player's moves did not arrive - press next turn again");
+        }
+    }
+    return menu_controller_of(om);
+}
+
+void *mp_on_screen_asked(void *om)
+{
+    static unsigned long last;
+    void *op = operation_on_screen(om);
+    if (!op) {
+        unsigned long now = GetTickCount();
+        if (now - last > 5000) {
+            char *c = (char *)menu_controller_of(om);
+            last = now;
+            mp_log("map: the host asks for this player's moves, but the map is not on screen (controller %p, screen %d, mode %d, operation %p)",
+                   c, c ? *(int *)(c + 0x1258) : -1, c ? *(int *)(c + 0x1200) : -1, c ? *(void **)(c + 0x1d8) : 0);
+            set_note("the host is waiting for your moves - go back to the map");
+        }
+    }
+    return op;
+}
+
 /* ------------------------------------------------------------------ log folder */
 static int put_s(char *d, int at, int cap, const char *s)
 {

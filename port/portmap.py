@@ -28,7 +28,7 @@ from capstone.x86 import X86_OP_IMM, X86_OP_MEM, X86_REG_RIP
 
 HERE = Path(__file__).resolve().parent
 OLD = HERE.parent / "old_build"
-NEW = HERE.parent / "game_test" / "bin" / "rel" / "x64"
+NEW = Path.home() / "Desktop" / "миус тесты" / "bin" / "rel" / "x64"
 
 
 class Mod:

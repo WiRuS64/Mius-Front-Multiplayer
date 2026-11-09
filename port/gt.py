@@ -25,7 +25,7 @@ from capstone import CS_ARCH_X86, CS_MODE_64, Cs
 from capstone.x86 import X86_OP_IMM, X86_OP_MEM, X86_REG_RIP
 
 HERE = Path(__file__).resolve().parent
-GAME = HERE.parent / "game_test" / "bin" / "rel" / "x64"
+GAME = Path.home() / "Desktop" / "миус тесты" / "bin" / "rel" / "x64"
 MODS = {"mod": HERE.parent / "release" / "mpmod1" / "files" / "bin" / "rel" / "x64" / "basic_network.codelib",
         "modsrc": HERE.parent / "MiusPlayer" / "_mp_research" / "basic_network" / "build" / "basic_network.codelib"}
 

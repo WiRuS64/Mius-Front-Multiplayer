@@ -35,16 +35,21 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ML64 = Path(os.environ.get("ML64", r"D:\programs\msvc_build\msvc\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\ml64.exe"))
-MSVC_SETUP = os.environ.get("MSVC_SETUP", "")
+MSVC_SETUP = Path(os.environ.get("MSVC_SETUP", r"D:\programs\msvc_build\msvc\setup_x64.bat"))
 INPUT_SHA = "6218ff0bb70d0ec5e4627a8031f311f453c79aed8272a879347df4c5ea58a90b"
 SEC_NAME, SEC_RVA = b".mpfix\0\0", 0x63000
 SEC_SIZE = 0x800
 DATA = (0x700, 0x710)
 MENU, MENU_DATA = 0x780, 0x7F0
 TEXT = 0x800                    # jump table, then text.c
-TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA", "mp_state_load_keep", "mp_log_path"]
+TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA", "mp_state_load_keep", "mp_log_path",
+                "mp_host_map_frame", "mp_on_screen_asked", "mp_session_status", "mp_local_ip", "mp_no_share_log"]
 MOD_FUNCS = {"mp_log": 0x27DC,   # what text.c uses of the mod: its log function
              "state_load": 0x2ECA4,   # fixes.c: the mod's state_load
+             "menu_controller_of": 0x143F0, "operation_on_screen": 0x17BC8, "session_status": 0x1DAA0,   # fixes.c: the turn watchdog
+             "g_tactical": 0x5B618, "g_connected": 0x5B61B, "g_map_collect": 0x5B72C, "g_turn_done": 0x5B72F,
+             "g_peer_on_map": 0x5B839, "g_map_in_hash": 0x5BA24, "g_map_collect_since": 0x5BBCC,
+             "g_map_restart_at": 0x5BD40, "g_map_note": 0x5BD50,
              "g_ui_scale": 0x5CBD8}   # and its UI scale (float)
 # font faces text.c tries, in this order: the game's own (registered by the game in its process), then Windows ones
 FACES = ["Segoe Print"]
@@ -56,6 +61,11 @@ SITES = [
     (0x2bcb6, bytes.fromhex("44 39 b8 00 12 00 00"), 0x780),   # main menu check -> menu_fix
     (0x2f092, bytes.fromhex("e8 0d fc ff ff"), 0x818),   # state_load -> mp_state_load_keep
     (0x2757, bytes.fromhex("e8 90 f1 ff ff"), 0x820),    # sprintf_s of the log name -> mp_log_path
+    (0x11989, bytes.fromhex("e8 62 2a 00 00"), 0x828),   # menu_controller_of in the host's map frame -> turn watchdog
+    (0x1a734, bytes.fromhex("e8 8f d4 ff ff"), 0x830),   # operation_on_screen where the joiner answers -> says why not
+    (0x2c8db, bytes.fromhex("e8 c0 11 ff ff"), 0x838),   # session_status (the top line) -> shows our note for 12 s
+    (0x10693, bytes.fromhex("e8 7e f6 02 00"), 0x840),   # inet_ntop in find_local_ip -> a VPN's address is not shown as this PC's
+    (0x1b680, bytes.fromhex("e8 57 71 fe ff"), 0x848),   # mp_log of "map: not shared" -> the host is told as well
     (0x2b4b2, bytes.fromhex("ff 15 90 8b 01 00"), 0x800),   # CreateFontA
     (0x2b4eb, bytes.fromhex("ff 15 3f 8b 01 00"), 0x808),   # GetTextExtentPoint32A
     (0x2b5d9, bytes.fromhex("ff 15 29 8a 01 00"), 0x810),   # TextOutA
@@ -165,8 +175,6 @@ def build_text(imports):
     sys.path.insert(0, str(HERE))   # python -I leaves the script folder out
     import link_coff
     text_header()
-    if not MSVC_SETUP:
-        sys.exit("set MSVC_SETUP to a script that sets up the x64 compiler (vcvars64.bat), or use --blob")
     obj = HERE / "text.obj"
     cmd = f'call "{MSVC_SETUP}" >nul && cl /nologo /c /O1 /GS- /Gs1000000 /Zl /MD /W4 /wd4100 /Fo"{obj}" text.c'
     subprocess.run(cmd, shell=True, check=True, cwd=HERE)

@@ -2,14 +2,13 @@
 # Game A hosts the saved test battle (MP_ROLE=host), game B joins through mp_join.exe; both press Start through
 # the mod's MP_TEST command file. Checks phases, the shared Start button, unit agreement, fog of war, crashes.
 #   run_versus.ps1 -Tag baseline [-Side germans|soviets] [-Warmup 60] [-Samples 6] [-Every 20] [-KeepRunning]
-param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "run", [ValidateSet("germans", "soviets")][string]$Side = "germans",
+param([string]$Game = "$env:USERPROFILE\Desktop\миус тесты", [string]$Tag = "run", [ValidateSet("germans", "soviets")][string]$Side = "germans",
       [int]$Warmup = 60, [int]$Samples = 6, [int]$Every = 20, [switch]$KeepRunning, [hashtable]$Extra = @{},
-      [string]$Chaos = "", [string]$ChaosDir = "",
-      [string]$Image = "", [string]$HostProfile = "cloud")   # -Image <battle image>: another battle than the saved test battle; -HostProfile: A's profile (its options, e.g. graphics)
-# -Chaos <profile> (lan, good_wifi, bad_wifi, mobile_tether, transatlantic, hell): B joins through the coop-anything chaos box; -ChaosDir <coop-anything>\tools\chaos
+      [string]$Chaos = "",
+      [string]$Image = "", [string]$HostProfile = "cloud")   # -Image: another battle image instead of the test battle; -HostProfile: A's profile (its graphics options)   # a chaos-box profile (lan, good_wifi, bad_wifi, mobile_tether, transatlantic, hell): B joins through the relay
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
-$Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
+$Py = "D:\programs\Python312\python.exe"
 . "$Game\_mp_research\tools\auto.ps1"
 $script:Game = $Game
 $tools = "$Game\_mp_research\tools"
@@ -47,7 +46,7 @@ public class QaWin {
 "@
 
 if (Get-Process starter_x64 -ErrorAction SilentlyContinue) { "A game instance is already running; not touching it. RESULT: SKIP"; Stop-Transcript | Out-Null; exit 2 }
-Get-ChildItem "$Game\out" -Filter "basic_network*.log" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
+Get-ChildItem "$Game\out","$Game\mp_logs" -Filter "basic_network*.log" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
 Get-ChildItem "$Game\out" -Filter "mp_*.txt" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
 Copy-Item $(if ($Image) { $Image } else { "$Game\_mp_research\test_battle_image.cfgpack" }) "$Game\data\common\shared\config\tacgame_image.cfgpack" -Force
 $started = Get-Date
@@ -85,7 +84,7 @@ function Finish([int]$code) {
     } else { Check "no crash dump written" $true }
     Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 1000; StartTime = $started } -ErrorAction SilentlyContinue |
         Where-Object { $_.Message -match 'starter_x64' } | ForEach-Object { Check "no Windows crash event" $false (($_.Message -split "`n")[0..6] -join ' ') }
-    Get-ChildItem "$Game\out" -Filter "basic_network*.log" | Copy-Item -Destination $runDir
+    Get-ChildItem "$Game\out","$Game\mp_logs" -Filter "basic_network*.log" | Copy-Item -Destination $runDir
     Get-ChildItem "$Game\out" -Filter "common_engine.log" | Copy-Item -Destination $runDir
     "--- build-dependent features the mod switched off"
     Select-String -Path "$runDir\basic_network*.log" -Pattern 'unknown game build|could not be hooked|not hooked' | ForEach-Object { "  $($_.Filename): $($_.Line.Substring([Math]::Min(22, $_.Line.Length)))" } | Sort-Object -Unique
@@ -111,7 +110,7 @@ Check "A: its player commands the Soviets" ($line -match 'commands Soviets') $(i
 $joinAddr = "127.0.0.1"
 $chaosInfo = $null
 if ($Chaos) {
-    $chaosDir = (Resolve-Path $ChaosDir).Path
+    $chaosDir = (Resolve-Path "$PSScriptRoot\..\..\..\tools\chaos").Path
     $chaosInfo = "$runDir\chaos_info.json"
     $relay = Start-Process $Py -ArgumentList @("-I", "`"$chaosDir\chaos.py`"", "relay", "--target", "127.0.0.1:1943", "--profile", $Chaos,
         "--info-file", "`"$chaosInfo`"", "--seconds", "1500") -PassThru -WindowStyle Hidden

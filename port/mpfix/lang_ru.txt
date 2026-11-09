@@ -501,6 +501,18 @@ move your own forces; the turn ends when both players have pressed next turn
 ending the turn with %s's moves
 заканчиваем ход с ходами игрока %1
 
+battle over
+бой окончен
+
+this turn's battles are not over yet - the map is shared when they are
+бои этого хода ещё не закончены - карта будет передана после них
+
+the other player's moves did not arrive - press next turn again
+ходы другого игрока не пришли - нажмите «следующий ход» ещё раз
+
+the host is waiting for your moves - go back to the map
+хост ждёт ваши ходы - вернитесь на карту
+
 the other player's game is gone - next turn ends the turn without him
 игры другого игрока больше нет - «Следующий ход» закончит ход без него
 

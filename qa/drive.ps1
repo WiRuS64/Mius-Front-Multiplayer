@@ -1,5 +1,6 @@
-﻿# Small driver for one running test game: drive.ps1 -Game <test copy> -ProcId <pid> -Do "key:27;shot:name;click:0.5,0.5;wait:2"
-param([Parameter(Mandatory=$true)][string]$Game, [int]$ProcId, [string]$Do, [string]$Out = "$PSScriptRoot\runs\drive")
+﻿# Small driver for one running test game: drive.ps1 -ProcId <pid> -Do "key:27;shot:name;click:0.5,0.5;wait:2"
+param([int]$ProcId, [string]$Do, [string]$Out = "$PSScriptRoot\runs\drive")
+$Game = "$env:USERPROFILE\Desktop\миус тесты"
 . "$Game\_mp_research\tools\auto.ps1"
 $script:Game = $Game
 New-Item -ItemType Directory -Force $Out | Out-Null

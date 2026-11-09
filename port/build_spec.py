@@ -4,10 +4,6 @@ Every address below was mapped with portmap.py from the build the mod was writte
 author's Ghidra project, SHA-256 equal to the author's game_build_3598.sha256) to the installed public build.
 Each code edit replaces one 32-bit immediate/displacement inside one instruction of release 2; the script finds it in
 the instruction bytes and refuses if it is not there exactly once.
-
-  python -I build_spec.py <release 2 basic_network.codelib> <game folder of Steam buildid 15814271>
-
-The game folder is only read (two hook signatures are copied from its adv_interf and adv_opgame modules).
 """
 import hashlib
 import json
@@ -18,10 +14,8 @@ from pathlib import Path
 import pefile
 
 HERE = Path(__file__).resolve().parent
-if len(sys.argv) != 3:
-    sys.exit(__doc__)
-MOD = Path(sys.argv[1])
-NEW = Path(sys.argv[2]) / "bin" / "rel" / "x64"
+MOD = HERE.parent / "release" / "mpmod1" / "files" / "bin" / "rel" / "x64" / "basic_network.codelib"
+NEW = Path.home() / "Desktop" / "миус тесты" / "bin" / "rel" / "x64"
 
 # (mod instruction rva, old value, new value, why)
 IMM = [

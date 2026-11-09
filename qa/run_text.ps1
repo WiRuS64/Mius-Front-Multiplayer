@@ -2,7 +2,7 @@
 # menu, the multiplayer panel, the join screen and the lobby, and checks the module's log ("text:" lines).
 #   run_text.ps1 [-Game <test copy>] [-Lang ru|en|""] [-Tag name] [-ListFonts]
 # -Lang "" leaves the choice to the game (root\engine.txt); ru / en set MP_LANG.
-param([Parameter(Mandatory=$true)][string]$Game,[string]$Lang = "", [string]$Tag = "text",
+param([string]$Game = "$env:USERPROFILE\Desktop\миус тесты", [string]$Lang = "", [string]$Tag = "text",
       [switch]$ListFonts)
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path

@@ -6,14 +6,13 @@
 #   A hosts the saved test battle (MP_ROLE=host) as steam:<HostId>
 #   B starts the way Steam's "Join Game" starts it: opgame.progpack, +gtmf_join=steam:<HostId>; B is ready in the lobby
 #   B's game downloads the battle and enters it; both press Start twice; units compared
-# Also checks, against the real Steam client on this PC: Steam is running for the game, the note for friends is taken.
 #   run_steam_join.ps1 [-Tag steam] [-HostId 7101] [-JoinId 7102]
 #   The stand-in binds UDP port id + 40000 (mod rva 0x3f832) and takes the sender id from the port, so ids must stay under 25536.
-param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "steam", [ValidateRange(1, 25535)][int]$HostId = 7101, [ValidateRange(1, 25535)][int]$JoinId = 7102,
+param([string]$Game = "$env:USERPROFILE\Desktop\миус тесты", [string]$Tag = "steam", [ValidateRange(1, 25535)][int]$HostId = 7101, [ValidateRange(1, 25535)][int]$JoinId = 7102,
       [int]$Warmup = 40, [switch]$KeepRunning)
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
-$Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
+$Py = "D:\programs\Python312\python.exe"
 . "$Game\_mp_research\tools\auto.ps1"
 $script:Game = $Game
 $tools = "$Game\_mp_research\tools"

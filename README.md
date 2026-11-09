@@ -1,4 +1,4 @@
-# Mius-Front Multiplayer 2.5.0
+# Mius-Front Multiplayer 2.6.0
 
 Two-player multiplayer (versus) for **Graviteam Tactics: Mius-Front** on the current Steam build, in Russian or
 English as the game is, drawn with the game's own fonts.
@@ -9,10 +9,10 @@ build 3598, so on the current game many of its hooks were off and battles never 
 
 | | |
 |---|---|
-| Version | **2.5.0** |
+| Version | **2.6.0** |
 | Game | Graviteam Tactics: Mius-Front, Steam app 312980, branch `public`, buildid 15814271 (GRAVITECH3 6.00, assembly 3598, compiled 2024-09-24) |
 | Not for | the Steam `public_beta` branch (untested), other stores (untested) |
-| `basic_network.codelib` SHA-256 | `acd6064086b6275425b26152445eedc0cfa54545ad899192388946d3de243522` |
+| `basic_network.codelib` SHA-256 | `494970f85107f59a0f26fdcbf5f18677e726e8cafab378218a120b77f40bbd84` |
 | License | CC0 1.0, like the original |
 
 **Русский:** Mius-Front Multiplayer — сетевая игра вдвоём для Graviteam Tactics: Mius-Front (Steam, ветка
@@ -24,7 +24,7 @@ build 3598, so on the current game many of its hooks were off and battles never 
 
 ## Install
 
-1. Download `Mius-Front-Multiplayer-2.5.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game
+1. Download `Mius-Front-Multiplayer-2.6.0.zip` from Releases and unpack it. Copy the `mpmod1` folder into the game
    folder (the one with `starter_x64.exe`; Steam: right-click the game, Manage, Browse local files).
 2. Close the game and run `mpmod1\Enable_Multiplayer.bat`. It checks the game files against
    `mpmod1\game_build_3598.sha256` (the hashes of Steam buildid 15814271) and copies five files into the game. No
@@ -44,6 +44,8 @@ build 3598, so on the current game many of its hooks were off and battles never 
 | 6 | Russian or English as the game is, in the game's own fonts (2.3.0) | `port/mpfix/text.c`, `lang_ru.txt` |
 | 7 | The logs in a folder of their own, `mp_logs` in the game folder; older than 14 days deleted (2.4.0) | `port/mpfix/fixes.c` |
 | 8 | After leaving an operation the main menu has MULTIPLAYER again; a joining player who leaves the map goes back to the host's lobby (2.5.0) | `port/mpfix/menu_fix.asm` |
+| 9 | The operation map no longer hangs at next turn: when the other player's moves do not arrive the host gives up after 45 s (up to 180 s while they are being received), says so and next turn can be pressed again; the joining player is told to go back to the map (2.6.0) | `port/mpfix/fixes.c`, `qa/run_turnhang.ps1` |
+| 10 | The lobby and UPnP use the PC's network address when the default route goes through a tunnel such as Cloudflare WARP; the host is told why the map is not handed over while battles of the turn are pending (2.6.0) | `port/mpfix/fixes.c` |
 
 Details of each are in the commit history and the release notes.
 
@@ -76,11 +78,14 @@ the author's build 42/0 bad, release 2 on Steam 15814271 42/19, this port 42/0.
 All on Steam `public` 15814271, two games on one PC, no mouse or keyboard except where noted. The scripts need
 `_mp_research` from the original repo in the game copy (its `tools` folder) and Python 3 (`MP_PYTHON`).
 
-| Script | What it does | Result with 2.5.0 |
+| Script | What it does | Result with 2.6.0 |
 |---|---|---|
 | `qa/run_text.ps1 [-Lang ru\|en]` | starts one game; frames of the main menu, the multiplayer panel (clicked), the join screen, the lobby; checks the language and that the game's fonts were read | 2.4.0: Russian game 6/0 (2.3.0: also `-Lang en` 6/0) |
-| `qa/run_versus.ps1` | saved test battle, host + joiner: shared Start button, unit agreement, fog of war, crashes | 25/0 (2.5.0) |
+| `qa/run_versus.ps1` | saved test battle, host + joiner: shared Start button, unit agreement, fog of war, crashes | 25/0 (2.6.0) |
 | `qa/run_operation.ps1` | a new operation through the menus (Stepanovka 1941): map shared, next turn by both, battle from the map, units compared, turn 2 | 40/0 |
+| `qa/run_turnhang.ps1` | the joining player leaves the map, then both press next turn | 2.5.0: the host still waiting after 70 s (fail); 2.6.0: 5/0, gives up after 45 s |
+| `qa/run_othermap.ps1` | next turn by both players on another operation (Stepanovka-Marinovka, July 1943), no orders, no battle | 8/0 |
+| `qa/run_fight.ps1 -Fight 360 -MaxTime 300` | the joining force is brought to 200 m in deployment; a real fight with hits, units and both games' result screens compared | 15/0, 0 units disagreeing |
 | `qa/turret_probe.py <tools> <host pid> <joiner pid>` | while a versus battle runs: turret handles in both games; one is changed in the host's copy of a joiner vehicle | 2.3.0: put back by the next state load; 2.4.0: kept |
 | `qa/drive.ps1` + `qa/ctrl_dump.py` | keys, clicks and frames in one running game; the menu controller's fields | leaving an operation (Esc, Esc): 2.4.0 no MULTIPLAYER entry; 2.5.0 the host has it, the joining player is back in the lobby in about 1 s |
 | `qa/run_operation.ps1 -Trenches` | the same, trenches of both games counted (`qa/trench_dups.py`) | 2.2.2: 40/0 |
@@ -93,15 +98,13 @@ the 5 m check fails (2 units, every sample).
 ## Not tested
 
 - Real Steam play between two PCs: 2.2.0 (host crash, fixed in 2.2.1) and 2.3.0 (an operation battle played to
-  the end; a host crash in an earlier battle, fixed in 2.4.0). Known from that game and not fixed yet: the
-  operation map can hang when both press next turn, low frame rate at x6 speed, vehicles firing at soldiers already dead, the host's squad names and battle timer
-  missing, the host's losses shown as 0 at the end.
+  the end; a host crash in an earlier battle, fixed in 2.4.0). Known from that game and not fixed yet: low frame rate at x6 speed, vehicles firing at soldiers already dead, the host's squad names and battle timer
+  missing, the host's losses shown as 0 at the end (not reproduced in three automated fights with 2.6.0).
 - While the host's briefing panel is open on the operational map the map is not handed to the joining player (the
   mod reads the menu controller's +0x1260 == 2 as "battles pending"; the briefing sets it too). Close it with F2.
 - Russian texts that only appear in rare situations (a force rejected on the Skirmish screen, UPnP failures,
   withdrawal countdowns) are in the table but were not seen on screen.
-- The `public_beta` branch; different mod versions against each other (use the same version). The lobby may show a
-  VPN adapter's address (e.g. Cloudflare WARP 198.18.0.1) instead of the LAN address.
+- The `public_beta` branch; different mod versions against each other (use the same version).
 
 ## Rebuilding the patched module yourself
 

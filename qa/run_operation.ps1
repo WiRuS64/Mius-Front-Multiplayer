@@ -9,15 +9,16 @@
 #   P1 leaves the battle; P1 back on the map, P2 back in P1's lobby by itself
 #   P1 presses next turn twice (battle results, then the turn): turn 2's map goes to P2, P2 on its map again
 # Click spots are fractions of a 16:9 game window, taken from screenshots of this operation's first turn.
-#   run_operation.ps1 [-Tag op] [-Fight 60] [-KeepRunning] [-Extra @{ MP_LOG_TRENCH = "1" }] [-Trenches]
-# -Extra: environment variables for both games; -Trenches: count trenches and doubled ones (trench_dups.py)
-param([Parameter(Mandatory=$true)][string]$Game, [string]$Tag = "operation", [int]$Fight = 60, [switch]$KeepRunning,
+#   run_operation.ps1 [-Tag op] [-Fight 60] [-KeepRunning]
+param([string]$Game = "$env:USERPROFILE\Desktop\миус тесты", [string]$Tag = "operation", [int]$Fight = 60, [switch]$KeepRunning,
       [double[]]$Op = @(0.584, 0.347), [double[]]$StartOp = @(0.5836, 0.6222), [double[]]$Group = @(0.1484, 0.4806),
       [double[]]$Square = @(0.1670, 0.4531), [double[]]$Zone = @(0.1758, 0.4694), [switch]$StopBeforeOrder, [int]$MaxTurns = 4,
       [hashtable]$Extra = @{}, [switch]$Trenches)
 $ErrorActionPreference = "Continue"
+if ($env:MP_QA_OP) { $Op = @($env:MP_QA_OP -split "," | ForEach-Object { [double]$_ }) }   # run_othermap.ps1: another operation
+if ($env:MP_QA_STARTOP) { $StartOp = @($env:MP_QA_STARTOP -split "," | ForEach-Object { [double]$_ }) }   # its "start operation" line: the popup opens under the row clicked
 $Game = (Resolve-Path $Game).Path
-$Py = if ($env:MP_PYTHON) { $env:MP_PYTHON } else { "python" }   # set MP_PYTHON to use another Python 3
+$Py = "D:\programs\Python312\python.exe"
 . "$Game\_mp_research\tools\auto.ps1"
 $script:Game = $Game
 $tools = "$Game\_mp_research\tools"
@@ -26,7 +27,7 @@ New-Item -ItemType Directory -Force $runDir | Out-Null
 $script:Shots = $runDir
 Start-Transcript -Path "$runDir\transcript.txt" | Out-Null
 if (Get-Process starter_x64 -ErrorAction SilentlyContinue) { "A game instance is already running; not touching it. RESULT: SKIP"; Stop-Transcript | Out-Null; exit 2 }
-Get-ChildItem "$Game\out" -Filter "basic_network*.log" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
+Get-ChildItem "$Game\out","$Game\mp_logs" -Filter "basic_network*.log" -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::Delete($_.FullName) }
 # a new operation each time: the test copy's saves of this operation are moved into the run folder
 $prof = "$Game\users\profiles\cloud"
 Get-ChildItem $prof -Filter "1941_10_Mius_30_10_stepanovka_*" -ErrorAction SilentlyContinue | Move-Item -Destination $runDir -Force
@@ -76,7 +77,7 @@ function Finish {
     Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 1000; StartTime = $started } -ErrorAction SilentlyContinue |
         Where-Object { $_.Message -match 'starter_x64' } | ForEach-Object { Check "no Windows crash event" $false (($_.Message -split "`n")[0..6] -join ' ') }
     if (-not $KeepRunning) { foreach ($g in @(Get-Process starter_x64 -ErrorAction SilentlyContinue)) { Stop-Game $g } }
-    Get-ChildItem "$Game\out" -Filter "basic_network*.log" | Copy-Item -Destination $runDir
+    Get-ChildItem "$Game\out","$Game\mp_logs" -Filter "basic_network*.log" | Copy-Item -Destination $runDir
     Show-Results
     $fail = @($script:Results | Where-Object Result -eq FAIL).Count
     "RESULT: $(if ($fail -eq 0) { 'PASS' } else { 'FAIL' })  ($runDir)"
@@ -95,6 +96,7 @@ Start-Sleep 1
 [void](Click-Game $p1 0.56 0.683)
 Check "P1: Operations screen open" ([bool](Wait-Log $p1log 'opened the stock campaign screen' 8))
 Away; Start-Sleep 3
+[void](Save-Shot $p1 "p1_operations")
 [void](Click-Game $p1 $Op[0] $Op[1]); Away; Start-Sleep 3
 [void](Save-Shot $p1 "p1_conditions")
 [void](Click-Game $p1 $StartOp[0] $StartOp[1]); Away
