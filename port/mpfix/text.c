@@ -507,6 +507,17 @@ static void prepare(const char *s, int len)
     if (g_ru) {
         int k = translate(s, len, g_out, sizeof g_out, 0);
         if (k >= 0) { g_text = g_out; g_len = k; cp = 1251; }
+    } else {
+        /* operations are still being tested (2.6.2): the button says so in English too, as lang_ru.txt does */
+        static const char op[] = "HOST AN OPERATION", beta[] = "HOST AN OPERATION (BETA)";
+        int i = 0;
+        while (i < len && op[i] && s[i] == op[i]) i++;
+        if (i == len && i == (int)sizeof op - 1) {
+            for (i = 0; beta[i]; i++) g_out[i] = beta[i];
+            g_out[i] = 0;
+            g_text = g_out;
+            g_len = i;
+        }
     }
     g_wlen = g_len ? MultiByteToWideChar(cp, 0, g_text, g_len, g_wide, sizeof g_wide / sizeof g_wide[0] - 1) : 0;
     if (g_wlen < 0) g_wlen = 0;
@@ -548,7 +559,7 @@ BOOL WINAPI mp_GetTextExtentPoint32A(HDC dc, LPCSTR s, int len, LPSIZE size)
         return TRUE;
     }
     BOOL ok = pExtentW(dc, g_wide, g_wlen, size);
-    if (ok && g_ru && g_wlen && g_text == g_out) {
+    if (ok && g_wlen && g_text == g_out) {
         /* a translation much longer than the English text would run out of the box made for it: draw it smaller */
         WCHAR en[512];
         int m = MultiByteToWideChar(CP_ACP, 0, s, len < 511 ? len : 511, en, 511);

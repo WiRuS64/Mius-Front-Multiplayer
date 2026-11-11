@@ -1,6 +1,6 @@
 GRAVITEAM TACTICS: MIUS-FRONT - MULTIPLAYER  (mpmod1, test version)
 For game version 6.00, build 3598 (the final Steam version). Two players: one hosts, one joins.
-Mius-Front Multiplayer 2.6.0: this copy is ported to the current Steam "public" branch (buildid 15814271,
+Mius-Front Multiplayer 2.6.2: this copy is ported to the current Steam "public" branch (buildid 15814271,
 build 3598 compiled 2024-09-24). game_build_3598.sha256 lists THAT build. basic_network.codelib is
 release 2 ported, with fixes (MG nests, ping, host crashes, trench pits) and Russian/English texts in the
 game's own fonts (Russian when the game runs in Russian; set MP_LANG=en or ru to override).
@@ -9,7 +9,9 @@ goes wrong, zip that folder and send it along.
 Operation, host: while your briefing panel is open on the map, the map is not handed to the other player -
 close it (F2). Leaving an operation (Esc, Esc) brings the MULTIPLAYER entry back; the other player then goes
 back to your lobby by himself.
-Both players need this same file: SHA-256 494970f85107f59a0f26fdcbf5f18677e726e8cafab378218a120b77f40bbd84
+Operations are BETA (HOST AN OPERATION (BETA) in the menu): they may be unstable. Battles: units are now
+fully synchronised between two PCs even when the two games loaded their models in another order (2.6.2).
+Both players need this same file: SHA-256 7ca758550f5bccf53009d68364398e6dcaa12079044821feb4077eb4a9d286fe
 Both players need the same mpmod1: network version 20, module built 2026-11-06.
 
 QUICK START

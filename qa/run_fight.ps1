@@ -4,7 +4,7 @@
 # both games are looked at.
 #   run_fight.ps1 -Tag fight [-Metres 200] [-Fight 180] [-Speed 1] [-KeepRunning]
 param([string]$Game = "$env:USERPROFILE\Desktop\миус тесты", [string]$Tag = "fight", [double]$Metres = 200, [int]$Fight = 180,
-      [double]$Speed = 1, [switch]$KeepRunning, [hashtable]$Extra = @{}, [string]$Image = "", [int]$MaxTime = 0)
+      [double]$Speed = 1, [switch]$KeepRunning, [hashtable]$Extra = @{}, [string]$Image = "", [int]$MaxTime = 0, [int]$ShiftGroups = 0, [switch]$ExpectRefused)
 $ErrorActionPreference = "Continue"
 $Game = (Resolve-Path $Game).Path
 $Py = "D:\programs\Python312\python.exe"
@@ -23,6 +23,7 @@ $dumpBefore = Get-Item "$Game\out\minidump.dmp" -ErrorAction SilentlyContinue
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $half = [int]($screen.Width / 2)
 $vars = @{ MP_TEST_SPEED = "$Speed" } + $Extra
+if ($ShiftGroups) { $vars["MP_TEST_SHIFT_GROUPS"] = "$ShiftGroups" }
 if ($MaxTime -gt 0) { $vars["MP_TEST_MAXTIME"] = "$MaxTime" }
 $mine = New-Object System.Collections.ArrayList
 
@@ -100,6 +101,21 @@ $worst = if (($diff | Out-String) -match 'worst sample: (\d+)') { [int]$Matches[
 Check "units agree in a real fight (at most 5 disagreeing)" ($worst -le 5) "worst sample: $worst"
 $far = @($diff | Select-String 'more than 5 m apart: (\d+)' | ForEach-Object { [int]$_.Matches[0].Groups[1].Value })
 Check "no unit more than 5 m apart" ($far.Count -gt 0 -and $far[-1] -eq 0) "all samples: $($far -join ' ')"
+if ($ShiftGroups) {
+    # every state received names this game's model groups moved by $ShiftGroups, as another PC's numbering would
+    foreach ($g in @($a, $b)) {
+        $scan = & $Py -I "$PSScriptRoot\handle_scan.py" $tools $g.Id 7FDF20 $ShiftGroups 2>&1
+        $scan | Out-File "$runDir\foreign_$($g.Id).txt" -Encoding utf8
+        $f = if (($scan | Out-String) -match 'foreign: (\d+) values at handle places \((\d+) units') { $Matches } else { $null }
+        if ($ExpectRefused) { "  $($g.Id): $(($scan | Select-Object -Last 1))" }
+        else { Check "$($g.Id): no other game's group left in a unit" ($f -and [int]$f[1] -eq 0 -and [int]$f[2] -gt 100) "$(($scan | Select-Object -Last 1))" }
+    }
+    $loaded = 0; $refused = 0
+    foreach ($l in (Select-String -Path $alog,$blog -Pattern 'loaded (\d+) \(.*?\), (\d+) not loaded \(render handles differ\)').Matches) { $loaded += [int]$l.Groups[1].Value; $refused += [int]$l.Groups[2].Value }
+    $renum = @(Select-String -Path $alog,$blog -Pattern 'values renumbered, state loaded').Count
+    if ($ExpectRefused) { Check "states refused when the groups are not matched (test of the test)" ($refused -gt 100 -and $loaded -lt $refused / 10) "loaded $loaded, refused $refused" }
+    else { Check "states of the other numbering loaded (at most 1% refused)" ($loaded -gt 1000 -and $refused -le $loaded / 100 -and $renum -gt 0) "loaded $loaded, refused $refused, $renum first-renumbering lines" }
+}
 "--- statistics before the end"
 & $Py -I "$PSScriptRoot\stat_probe.py" $tools $a.Id $b.Id 2>&1 | Out-File "$runDir\stat_before_end.txt" -Encoding utf8
 Get-Content "$runDir\stat_before_end.txt" -Tail 3
@@ -118,5 +134,18 @@ if ($MaxTime -gt 0) {
 }
 $hits = @(Select-String -Path $alog,$blog -Pattern 'hit: 5 s: [1-9]').Count
 Check "there was fighting (hits in the logs, whole battle)" ($hits -gt 0) "$hits five-second reports with hits"
+# what one game worked out on its own units must have been carried out by the other (the owners' battle of 2026-11-09: 44434 sent, 0 carried out)
+function Hit-Totals($log) {
+    $t = @{ sent = 0; done = 0 }
+    foreach ($l in (Select-String -Path $log -Pattern 'hit: 5 s: (\d+) on this.*?, (\d+) of the other game.s carried out here,.*?, (\d+) not carried').Matches) {
+        $t.sent += [int]$l.Groups[1].Value; $t.done += [int]$l.Groups[2].Value + [int]$l.Groups[3].Value
+    }
+    $t
+}
+$ha = Hit-Totals $alog; $hb = Hit-Totals $blog
+# a side that hardly fired says nothing about its direction; at least one direction must have been tried
+$okA = $ha.sent -lt 10 -or $hb.done -ge 0.8 * $ha.sent; $okB = $hb.sent -lt 10 -or $ha.done -ge 0.8 * $hb.sent
+Check "hits carried out by the other game (each direction with at least 10 hits: 80% arrived)" ($okA -and $okB -and ($ha.sent -ge 10 -or $hb.sent -ge 10)) "A sent $($ha.sent), B carried out $($hb.done); B sent $($hb.sent), A carried out $($ha.done)"
+Check "each game has the other's numbers" ([bool](Select-String -Path $alog -Pattern 'numbers: \d+ descriptions' -Quiet) -and [bool](Select-String -Path $blog -Pattern 'numbers: \d+ descriptions' -Quiet))
 foreach ($log in @($alog, $blog)) { (Select-String -Path $log -Pattern 'end: ').Line | Select-Object -Last 8 | ForEach-Object { $_.Substring(13, [Math]::Min(170, $_.Length - 13)) } }
 Done

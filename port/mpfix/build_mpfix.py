@@ -43,13 +43,17 @@ DATA = (0x700, 0x710)
 MENU, MENU_DATA = 0x780, 0x7F0
 TEXT = 0x800                    # jump table, then text.c
 TEXT_ENTRIES = ["mp_CreateFontA", "mp_GetTextExtentPoint32A", "mp_TextOutA", "mp_state_load_keep", "mp_log_path",
-                "mp_host_map_frame", "mp_on_screen_asked", "mp_session_status", "mp_local_ip", "mp_no_share_log"]
+                "mp_host_map_frame", "mp_on_screen_asked", "mp_session_status", "mp_local_ip", "mp_no_share_log", "mp_numbers_due", "mp_numbers_received", "mp_handles_ok"]
 MOD_FUNCS = {"mp_log": 0x27DC,   # what text.c uses of the mod: its log function
              "state_load": 0x2ECA4,   # fixes.c: the mod's state_load
              "menu_controller_of": 0x143F0, "operation_on_screen": 0x17BC8, "session_status": 0x1DAA0,   # fixes.c: the turn watchdog
              "g_tactical": 0x5B618, "g_connected": 0x5B61B, "g_map_collect": 0x5B72C, "g_turn_done": 0x5B72F,
              "g_peer_on_map": 0x5B839, "g_map_in_hash": 0x5BA24, "g_map_collect_since": 0x5BBCC,
              "g_map_restart_at": 0x5BD40, "g_map_note": 0x5BD50,
+             "handles_match": 0x2E7E0,   # fixes.c: the guard of unit states
+             "xlate_received": 0x39A40, "shots_queue": 0x34C74,   # fixes.c: the other game's numbers
+             "g_their_desc": 0x5D3C0, "g_their_obj": 0x5D3D8, "g_expect_desc": 0x5D480, "g_expect_obj": 0x5D484,
+             "g_xlate_ready": 0x5D490, "g_xlate_due": 0x5D492,
              "g_ui_scale": 0x5CBD8}   # and its UI scale (float)
 # font faces text.c tries, in this order: the game's own (registered by the game in its process), then Windows ones
 FACES = ["Segoe Print"]
@@ -66,6 +70,9 @@ SITES = [
     (0x2c8db, bytes.fromhex("e8 c0 11 ff ff"), 0x838),   # session_status (the top line) -> shows our note for 12 s
     (0x10693, bytes.fromhex("e8 7e f6 02 00"), 0x840),   # inet_ntop in find_local_ip -> a VPN's address is not shown as this PC's
     (0x1b680, bytes.fromhex("e8 57 71 fe ff"), 0x848),   # mp_log of "map: not shared" -> the host is told as well
+    (0x398e8, bytes.fromhex("80 3d a3 3b 02 00 00"), 0x850),   # xlate_frame's "send due?" -> asks for the other game's table if missing
+    (0x3506c, bytes.fromhex("e8 cf 49 00 00"), 0x858),   # xlate_received in the shots' dispatch -> sees the request
+    (0x31a13, bytes.fromhex("e8 c8 cd ff ff"), 0x860),   # handles_match before a unit state is loaded -> groups renumbered
     (0x2b4b2, bytes.fromhex("ff 15 90 8b 01 00"), 0x800),   # CreateFontA
     (0x2b4eb, bytes.fromhex("ff 15 3f 8b 01 00"), 0x808),   # GetTextExtentPoint32A
     (0x2b5d9, bytes.fromhex("ff 15 29 8a 01 00"), 0x810),   # TextOutA
@@ -78,6 +85,8 @@ BYTE_PATCHES = [
     # game's copies on top dug the same trench again, deeper each time (je -> jmp to the end of the loop,
     # where the received list is emptied).
     (0x37be0, bytes.fromhex("0f 84 2e 01 00 00"), bytes.fromhex("e9 2f 01 00 00 90")),
+    # the two bytes after the call that replaced the 7-byte cmp at 398e8h: test al, al (the jne after it stays)
+    (0x398ed, bytes.fromhex("90 90"), bytes.fromhex("84 c0")),
 ]
 # each stub's call/pop that finds the image base (the stubs subtract these fixed offsets)
 PC_CHECKS = [

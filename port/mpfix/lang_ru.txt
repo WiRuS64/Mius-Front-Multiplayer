@@ -117,7 +117,7 @@ HOST A CUSTOM MISSION
 СОЗДАТЬ ИГРУ ПО МИССИИ
 
 HOST AN OPERATION
-СОЗДАТЬ ОПЕРАЦИЮ
+СОЗДАТЬ ОПЕРАЦИЮ (БЕТА)
 
 JOIN A GAME
 ВОЙТИ В ИГРУ
